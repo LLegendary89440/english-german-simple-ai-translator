@@ -1,0 +1,2413 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOSTfilms übersetzer</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 700px; /* Increased width slightly for potentially longer words */
+        }
+        h1 {
+            color: #0056b3;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 120px; /* Increased height slightly */
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .controls label {
+            margin-right: 5px;
+        }
+        .controls select, .controls button {
+            padding: 10px 15px;
+            border: 1px solid #0056b3;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .controls select {
+            background-color: white;
+            color: #333;
+        }
+        .controls button:hover {
+            background-color: #0056b3;
+        }
+        #output {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            min-height: 120px; /* Increased height slightly */
+            border: 1px solid #ced4da;
+            font-size: 16px;
+            white-space: pre-wrap; /* Preserve line breaks */
+            word-wrap: break-word; /* Ensure long words break */
+        }
+        h3 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BOSTfilms übersetzer</h1>
+
+        <textarea id="inputText" placeholder="Enter text to translate..."></textarea>
+
+        <div class="controls">
+            <div>
+                <label for="sourceLang">From:</label>
+                <select id="sourceLang">
+                    <option value="en">English</option>
+                    <option value="de">German</option>
+                </select>
+            </div>
+            <button id="translateBtn">Translate</button>
+            <div>
+                <label for="targetLang">To:</label>
+                <select id="targetLang" disabled>
+                    <option value="de">German</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+        </div>
+
+        <h3>Translation:</h3>
+        <div id="output"></div>
+
+    </div>
+
+    <script>
+        // --- DICTIONARIES ---
+        // Significantly expanded. Keys are lowercase.
+        // For German nouns, often the definite article (der, die, das) is included
+        // to hint at gender, but this doesn't solve case issues.
+
+        const en_to_de_dictionary = {
+            // --- Common Nouns ---
+            "apple": "der Apfel", "apfel": "der Apfel",
+            "book": "das Buch", "buch": "das Buch",
+            "car": "das Auto", "auto": "das Auto",
+            "house": "das Haus", "haus": "das Haus",
+            "cat": "die Katze", "katze": "die Katze",
+            "dog": "der Hund", "hund": "der Hund",
+            "tree": "der Baum", "baum": "der Baum",
+            "water": "das Wasser", "wasser": "das Wasser",
+            "friend": "der Freund / die Freundin", "freund": "der Freund / die Freundin",
+            "table": "der Tisch", "tisch": "der Tisch",
+            "chair": "der Stuhl", "stuhl": "der Stuhl",
+            "sun": "die Sonne", "sonne": "die Sonne",
+            "moon": "der Mond", "mond": "der Mond",
+            "man": "der Mann", "mann": "der Mann",
+            "woman": "die Frau", "frau": "die Frau",
+            "child": "das Kind", "kind": "das Kind",
+            "city": "die Stadt", "stadt": "die Stadt",
+            "country": "das Land", "land": "das Land",
+            "world": "die Welt", "welt": "die Welt",
+            "school": "die Schule", "schule": "die Schule",
+            "food": "das Essen", "essen": "das Essen",
+            "name": "der Name", "name": "der Name",
+            "time": "die Zeit", "zeit": "die Zeit",
+            "day": "der Tag", "tag": "der Tag",
+            "night": "die Nacht", "nacht": "die Nacht",
+            "morning": "der Morgen", "morgen": "der Morgen",
+            "evening": "der Abend", "abend": "der Abend",
+            "year": "das Jahr", "jahr": "das Jahr",
+            "week": "die Woche", "woche": "die Woche",
+            "month": "der Monat", "monat": "der Monat",
+            "hour": "die Stunde", "stunde": "die Stunde",
+            "minute": "die Minute", "minute": "die Minute",
+            "second": "die Sekunde", "sekunde": "die Sekunde",
+            "money": "das Geld", "geld": "das Geld",
+            "job": "der Job / die Arbeit", "arbeit": "die Arbeit",
+            "music": "die Musik", "musik": "die Musik",
+            "movie": "der Film", "film": "der Film",
+            "question": "die Frage", "frage": "die Frage",
+            "answer": "die Antwort", "antwort": "die Antwort",
+            "problem": "das Problem", "problem": "das Problem",
+            "door": "die Tür", "tür": "die Tür",
+            "window": "das Fenster", "fenster": "das Fenster",
+            "bed": "das Bett", "bett": "das Bett",
+            "hand": "die Hand", "hand": "die Hand",
+            "foot": "der Fuß", "fuß": "der Fuß",
+            "head": "der Kopf", "kopf": "der Kopf",
+            "eye": "das Auge", "auge": "das Auge",
+            "heart": "das Herz", "herz": "das Herz",
+            "love": "die Liebe", "liebe": "die Liebe",
+            "family": "die Familie", "familie": "die Familie",
+            "father": "der Vater", "vater": "der Vater",
+            "mother": "die Mutter", "mutter": "die Mutter",
+            "brother": "der Bruder", "bruder": "der Bruder",
+            "sister": "die Schwester", "schwester": "die Schwester",
+            "son": "der Sohn", "sohn": "der Sohn",
+            "daughter": "die Tochter", "tochter": "die Tochter",
+            "street": "die Straße", "straße": "die Straße",
+            "game": "das Spiel", "spiel": "das Spiel",
+            "language": "die Sprache", "sprache": "die Sprache",
+            "word": "das Wort", "wort": "das Wort",
+            "sentence": "der Satz", "satz": "der Satz",
+            "number": "die Zahl", "zahl": "die Zahl",
+            "color": "die Farbe", "farbe": "die Farbe",
+            "air": "die Luft", "luft": "die Luft",
+            "fire": "das Feuer", "feuer": "das Feuer",
+            "earth": "die Erde", "erde": "die Erde",
+            "story": "die Geschichte", "geschichte": "die Geschichte",
+            "person": "die Person", "person": "die Person",
+            "people": "die Leute / die Menschen", "leute": "die Leute", "menschen": "die Menschen",
+            "thing": "das Ding / die Sache", "ding": "das Ding", "sache": "die Sache",
+            "idea": "die Idee", "idee": "die Idee",
+            "example": "das Beispiel", "beispiel": "das Beispiel",
+            "part": "der Teil", "teil": "der Teil",
+            "place": "der Ort / der Platz", "ort": "der Ort", "platz": "der Platz",
+            "way": "der Weg", "weg": "der Weg",
+            "life": "das Leben", "leben": "das Leben",
+            "death": "der Tod", "tod": "der Tod",
+            "war": "der Krieg", "krieg": "der Krieg",
+            "peace": "der Frieden", "frieden": "der Frieden",
+            "light": "das Licht", "licht": "das Licht",
+            "sound": "der Klang / das Geräusch", "klang": "der Klang", "geräusch": "das Geräusch",
+            "company": "die Firma / das Unternehmen", "firma": "die Firma",
+            "system": "das System", "system": "das System",
+            "power": "die Macht / die Kraft", "macht": "die Macht", "kraft": "die Kraft",
+            "office": "das Büro", "büro": "das Büro",
+            "student": "der Student / die Studentin", "student": "der Student",
+            "teacher": "der Lehrer / die Lehrerin", "lehrer": "der Lehrer",
+            "doctor": "der Arzt / die Ärztin", "arzt": "der Arzt",
+            "information": "die Information", "information": "die Information",
+            "computer": "der Computer", "computer": "der Computer",
+            "phone": "das Telefon", "telefon": "das Telefon",
+            "letter": "der Brief", "brief": "der Brief", // also means letter of alphabet
+            "paper": "das Papier", "papier": "das Papier",
+            "room": "das Zimmer / der Raum", "zimmer": "das Zimmer", "raum": "der Raum",
+            "flower": "die Blume", "blume": "die Blume",
+            "train": "der Zug", "zug": "der Zug",
+            "bus": "der Bus", "bus": "der Bus",
+            "ship": "das Schiff", "schiff": "das Schiff",
+            "road": "die Straße", // Same as street
+            "price": "der Preis", "preis": "der Preis",
+            "key": "der Schlüssel", "schlüssel": "der Schlüssel",
+            "picture": "das Bild", "bild": "das Bild",
+            "art": "die Kunst", "kunst": "die Kunst",
+            "history": "die Geschichte", // Same as story
+            "law": "das Gesetz", "gesetz": "das Gesetz",
+            "president": "der Präsident / die Präsidentin", "präsident": "der Präsident",
+            "king": "der König", "könig": "der König",
+            "queen": "die Königin", "königin": "die Königin",
+            "area": "das Gebiet / der Bereich", "gebiet": "das Gebiet",
+            "body": "der Körper", "körper": "der Körper",
+            "building": "das Gebäude", "gebäude": "das Gebäude",
+            "center": "das Zentrum / die Mitte", "zentrum": "das Zentrum",
+            "chance": "die Chance / die Möglichkeit", "chance": "die Chance",
+            "change": "die Veränderung / der Wechsel", "veränderung": "die Veränderung",
+            "community": "die Gemeinschaft", "gemeinschaft": "die Gemeinschaft",
+            "condition": "die Bedingung / der Zustand", "bedingung": "die Bedingung",
+            "corner": "die Ecke", "ecke": "die Ecke",
+            "culture": "die Kultur", "kultur": "die Kultur",
+            "data": "die Daten", "daten": "die Daten", // plural
+            "design": "das Design / der Entwurf", "design": "das Design",
+            "difference": "der Unterschied", "unterschied": "der Unterschied",
+            "direction": "die Richtung", "richtung": "die Richtung",
+            "discussion": "die Diskussion", "diskussion": "die Diskussion",
+            "dream": "der Traum", "traum": "der Traum",
+            "education": "die Bildung / die Erziehung", "bildung": "die Bildung",
+            "effect": "die Wirkung / der Effekt", "wirkung": "die Wirkung",
+            "end": "das Ende", "ende": "das Ende",
+            "energy": "die Energie", "energie": "die Energie",
+            "event": "das Ereignis / die Veranstaltung", "ereignis": "das Ereignis",
+            "experience": "die Erfahrung", "erfahrung": "die Erfahrung",
+            "fact": "die Tatsache / der Fakt", "tatsache": "die Tatsache",
+            "fear": "die Angst", "angst": "die Angst",
+            "field": "das Feld / der Bereich", "feld": "das Feld",
+            "figure": "die Figur / die Zahl", "figur": "die Figur",
+            "form": "die Form", "form": "die Form",
+            "future": "die Zukunft", "zukunft": "die Zukunft",
+            "goal": "das Ziel", "ziel": "das Ziel",
+            "government": "die Regierung", "regierung": "die Regierung",
+            "ground": "der Boden / der Grund", "boden": "der Boden",
+            "group": "die Gruppe", "gruppe": "die Gruppe",
+            "health": "die Gesundheit", "gesundheit": "die Gesundheit",
+            "hope": "die Hoffnung", "hoffnung": "die Hoffnung",
+            "horse": "das Pferd", "pferd": "das Pferd",
+            "industry": "die Industrie", "industrie": "die Industrie",
+            "interest": "das Interesse", "interesse": "das Interesse",
+            "knowledge": "das Wissen", "wissen": "das Wissen",
+            // "language": "die Sprache", // already have
+            "level": "das Niveau / die Ebene", "niveau": "das Niveau",
+            "line": "die Linie / die Zeile", "linie": "die Linie",
+            "list": "die Liste", "liste": "die Liste",
+            "market": "der Markt", "markt": "der Markt",
+            "material": "das Material", "material": "das Material",
+            "meaning": "die Bedeutung", "bedeutung": "die Bedeutung",
+            "member": "das Mitglied", "mitglied": "das Mitglied",
+            "memory": "die Erinnerung / das Gedächtnis", "erinnerung": "die Erinnerung",
+            "method": "die Methode", "methode": "die Methode",
+            "model": "das Modell", "modell": "das Modell",
+            "moment": "der Moment / der Augenblick", "moment": "der Moment",
+            "mountain": "der Berg", "berg": "der Berg",
+            "movement": "die Bewegung", "bewegung": "die Bewegung",
+            "nation": "die Nation", "nation": "die Nation",
+            "nature": "die Natur", "natur": "die Natur",
+            "need": "das Bedürfnis / die Notwendigkeit", "bedürfnis": "das Bedürfnis",
+            "news": "die Nachrichten", "nachrichten": "die Nachrichten", // plural
+            "north": "der Norden", "norden": "der Norden",
+            "south": "der Süden", "süden": "der Süden",
+            "east": "der Osten", "osten": "der Osten",
+            "west": "der Westen", "westen": "der Westen",
+            "object": "das Objekt / der Gegenstand", "objekt": "das Objekt",
+            "opportunity": "die Gelegenheit / die Möglichkeit", "gelegenheit": "die Gelegenheit",
+            "order": "die Bestellung / der Befehl / die Reihenfolge", "bestellung": "die Bestellung",
+            "organization": "die Organisation", "organisation": "die Organisation",
+            "page": "die Seite", "seite": "die Seite",
+            "pain": "der Schmerz", "schmerz": "der Schmerz",
+            "parent": "das Elternteil", "elternteil": "das Elternteil", // (plural 'Eltern' is common for 'parents')
+            "parents": "die Eltern", "eltern": "die Eltern",
+            "past": "die Vergangenheit", "vergangenheit": "die Vergangenheit",
+            "patient": "der Patient / die Patientin", "patient": "der Patient",
+            "pattern": "das Muster", "muster": "das Muster",
+            "period": "die Periode / der Zeitraum", "periode": "die Periode",
+            "plan": "der Plan", "plan": "der Plan",
+            "plant": "die Pflanze", "pflanze": "die Pflanze",
+            "player": "der Spieler / die Spielerin", "spieler": "der Spieler",
+            "point": "der Punkt", "punkt": "der Punkt",
+            "policy": "die Politik / die Richtlinie", "politik": "die Politik",
+            "position": "die Position / die Stelle", "position": "die Position",
+            "product": "das Produkt", "produkt": "das Produkt",
+            "program": "das Programm", "programm": "das Programm",
+            "project": "das Projekt", "projekt": "das Projekt",
+            "property": "das Eigentum / die Eigenschaft", "eigentum": "das Eigentum",
+            "purpose": "der Zweck / das Ziel", "zweck": "der Zweck",
+            "quality": "die Qualität", "qualität": "die Qualität",
+            "rain": "der Regen", "regen": "der Regen",
+            "range": "der Bereich / die Reichweite", "bereich": "der Bereich",
+            "rate": "die Rate / der Kurs", "rate": "die Rate",
+            "reason": "der Grund", "grund": "der Grund",
+            "record": "die Aufzeichnung / der Rekord", "aufzeichnung": "die Aufzeichnung",
+            "region": "die Region", "region": "die Region",
+            "relationship": "die Beziehung", "beziehung": "die Beziehung",
+            "report": "der Bericht", "bericht": "der Bericht",
+            "research": "die Forschung", "forschung": "die Forschung",
+            "result": "das Ergebnis", "ergebnis": "das Ergebnis",
+            "return": "die Rückkehr / der Ertrag", "rückkehr": "die Rückkehr",
+            "role": "die Rolle", "rolle": "die Rolle",
+            "rule": "die Regel", "regel": "die Regel",
+            "sea": "das Meer / die See", "meer": "das Meer",
+            "season": "die Jahreszeit", "jahreszeit": "die Jahreszeit",
+            "seat": "der Sitz / der Platz", "sitz": "der Sitz",
+            "sense": "der Sinn", "sinn": "der Sinn",
+            "service": "der Dienst / die Dienstleistung", "dienst": "der Dienst",
+            "sex": "das Geschlecht", "geschlecht": "das Geschlecht",
+            // "shape": "die Form", // same as form
+            // "side": "die Seite", // same as page
+            "sign": "das Zeichen", "zeichen": "das Zeichen",
+            "skill": "die Fähigkeit / das Können", "fähigkeit": "die Fähigkeit",
+            "sky": "der Himmel", "himmel": "der Himmel",
+            "snow": "der Schnee", "schnee": "der Schnee",
+            "society": "die Gesellschaft", "gesellschaft": "die Gesellschaft",
+            "soldier": "der Soldat / die Soldatin", "soldat": "der Soldat",
+            "solution": "die Lösung", "lösung": "die Lösung",
+            "song": "das Lied", "lied": "das Lied",
+            "sort": "die Art / die Sorte", "art": "die Art",
+            "space": "der Raum / der Weltraum", "weltraum": "der Weltraum",
+            "sport": "der Sport", "sport": "der Sport",
+            "spring": "der Frühling", "frühling": "der Frühling", // season
+            "summer": "der Sommer", "sommer": "der Sommer",
+            "autumn": "der Herbst", "fall": "der Herbst", "herbst": "der Herbst", // fall (US)
+            "winter": "der Winter", "winter": "der Winter",
+            "staff": "das Personal / die Mitarbeiter", "personal": "das Personal",
+            "stage": "die Bühne / die Phase", "bühne": "die Bühne",
+            "standard": "der Standard", "standard": "der Standard",
+            "star": "der Stern", "stern": "der Stern",
+            "start": "der Anfang / der Start", "anfang": "der Anfang",
+            "state": "der Staat / der Zustand", "staat": "der Staat",
+            "statement": "die Aussage", "aussage": "die Aussage",
+            "station": "der Bahnhof / die Station", "bahnhof": "der Bahnhof",
+            "step": "der Schritt", "schritt": "der Schritt",
+            "stock": "der Vorrat / die Aktie", "vorrat": "der Vorrat",
+            "stone": "der Stein", "stein": "der Stein",
+            "stop": "der Halt / die Haltestelle", "halt": "der Halt",
+            "store": "das Geschäft / der Laden", "geschäft": "das Geschäft",
+            "strategy": "die Strategie", "strategie": "die Strategie",
+            "structure": "die Struktur", "struktur": "die Struktur",
+            "study": "die Studie / das Studium", "studie": "die Studie",
+            "subject": "das Thema / das Fach", "thema": "das Thema",
+            "success": "der Erfolg", "erfolg": "der Erfolg",
+            "sugar": "der Zucker", "zucker": "der Zucker",
+            "support": "die Unterstützung", "unterstützung": "die Unterstützung",
+            "surface": "die Oberfläche", "oberfläche": "die Oberfläche",
+            "talk": "das Gespräch", "gespräch": "das Gespräch",
+            "task": "die Aufgabe", "aufgabe": "die Aufgabe",
+            "tax": "die Steuer", "steuer": "die Steuer",
+            "tea": "der Tee", "tee": "der Tee",
+            "team": "das Team / die Mannschaft", "team": "das Team",
+            "technology": "die Technologie", "technologie": "die Technologie",
+            "term": "der Begriff / die Bedingung / das Semester", "begriff": "der Begriff",
+            "test": "der Test", "test": "der Test",
+            "theory": "die Theorie", "theorie": "die Theorie",
+            "thought": "der Gedanke", "gedanke": "der Gedanke",
+            "top": "die Spitze / das Oberteil", "spitze": "die Spitze",
+            "total": "die Summe / die Gesamtzahl", "summe": "die Summe",
+            "town": "die Stadt", // smaller city
+            "trade": "der Handel", "handel": "der Handel",
+            "tradition": "die Tradition", "tradition": "die Tradition",
+            "traffic": "der Verkehr", "verkehr": "der Verkehr",
+            "travel": "die Reise", "reise": "die Reise",
+            "treatment": "die Behandlung", "behandlung": "die Behandlung",
+            "trouble": "das Problem / der Ärger", "ärger": "der Ärger",
+            "truth": "die Wahrheit", "wahrheit": "die Wahrheit",
+            // "type": "der Typ / die Art", // same as sort
+            "union": "die Gewerkschaft / die Union", "gewerkschaft": "die Gewerkschaft",
+            "unit": "die Einheit", "einheit": "die Einheit",
+            "university": "die Universität", "universität": "die Universität",
+            "use": "der Gebrauch / die Nutzung", "gebrauch": "der Gebrauch",
+            "value": "der Wert", "wert": "der Wert",
+            "variety": "die Vielfalt / die Sorte", "vielfalt": "die Vielfalt",
+            "version": "die Version", "version": "die Version",
+            "victim": "das Opfer", "opfer": "das Opfer",
+            "video": "das Video", "video": "das Video",
+            "view": "die Ansicht / der Blick", "ansicht": "die Ansicht",
+            "village": "das Dorf", "dorf": "das Dorf",
+            "voice": "die Stimme", "stimme": "die Stimme",
+            "volume": "das Volumen / die Lautstärke", "volumen": "das Volumen",
+            "wall": "die Wand / die Mauer", "wand": "die Wand",
+            "watch": "die Uhr", "uhr": "die Uhr", // timepiece
+            // "way": "der Weg / die Art und Weise", // already have 'der Weg'
+            "weather": "das Wetter", "wetter": "das Wetter",
+            "weight": "das Gewicht", "gewicht": "das Gewicht",
+            "wind": "der Wind", "wind": "der Wind",
+            "wine": "der Wein", "wein": "der Wein",
+            "wood": "das Holz", "holz": "das Holz",
+            // "work": "die Arbeit", // already have 'arbeit'
+            "writer": "der Schriftsteller / die Schriftstellerin", "schriftsteller": "der Schriftsteller",
+            "youth": "die Jugend", "jugend": "die Jugend",
+            "zone": "die Zone", "zone": "die Zone",
+
+            // --- Common Verbs (mostly infinitive) ---
+            "to be": "sein", "be": "sein",
+            "to have": "haben", "have": "haben",
+            "to do": "tun / machen", "do": "tun / machen", "make": "machen",
+            "to say": "sagen", "say": "sagen",
+            "to go": "gehen", "go": "gehen",
+            "to get": "bekommen / werden", "get": "bekommen / werden",
+            // "to make": "machen", // see 'to do'
+            "to know": "wissen / kennen", "know": "wissen / kennen",
+            "to think": "denken / glauben", "think": "denken / glauben",
+            "to take": "nehmen", "take": "nehmen",
+            "to see": "sehen", "see": "sehen",
+            "to come": "kommen", "come": "kommen",
+            "to want": "wollen / möchten", "want": "wollen / möchten",
+            "to look": "schauen / aussehen", "look": "schauen / aussehen",
+            "to use": "benutzen / verwenden", "use": "benutzen / verwenden",
+            "to find": "finden", "find": "finden",
+            "to give": "geben", "give": "geben",
+            "to tell": "erzählen / sagen", "tell": "erzählen / sagen",
+            "to work": "arbeiten", "work": "arbeiten",
+            "to call": "anrufen / nennen", "call": "anrufen / nennen",
+            "to try": "versuchen / probieren", "try": "versuchen / probieren",
+            "to ask": "fragen", "ask": "fragen",
+            // "to need": "brauchen / benötigen", // 'need' as noun already exists
+            "to feel": "fühlen", "feel": "fühlen",
+            "to become": "werden", "become": "werden",
+            "to leave": "verlassen / lassen", "leave": "verlassen / lassen",
+            "to put": "setzen / stellen / legen", "put": "setzen / stellen / legen",
+            "to mean": "bedeuten / meinen", "mean": "bedeuten / meinen",
+            "to keep": "behalten / halten", "keep": "behalten / halten",
+            "to let": "lassen", "let": "lassen",
+            "to begin": "beginnen / anfangen", "begin": "beginnen / anfangen", // 'start' noun exists
+            "to seem": "scheinen", "seem": "scheinen",
+            "to help": "helfen", "help": "helfen",
+            "to talk": "sprechen / reden", // 'talk' noun exists
+            "to turn": "drehen / abbiegen", "turn": "drehen / abbiegen",
+            // "to start": "anfangen / starten", // see 'to begin'
+            "to show": "zeigen", "show": "zeigen",
+            "to hear": "hören", "hear": "hören",
+            "to play": "spielen", "play": "spielen",
+            "to run": "laufen / rennen", "run": "laufen / rennen",
+            "to move": "bewegen / umziehen", "move": "bewegen / umziehen",
+            "to live": "leben / wohnen", // 'live' adj exists
+            "to believe": "glauben", "believe": "glauben",
+            "to hold": "halten", "hold": "halten",
+            "to bring": "bringen", "bring": "bringen",
+            "to happen": "passieren / geschehen", "happen": "passieren / geschehen",
+            "to write": "schreiben", "write": "schreiben",
+            "to sit": "sitzen", "sit": "sitzen",
+            "to stand": "stehen", "stand": "stehen",
+            "to lose": "verlieren", "lose": "verlieren",
+            "to pay": "bezahlen / zahlen", "pay": "bezahlen / zahlen",
+            "to meet": "treffen / kennenlernen", "meet": "treffen / kennenlernen",
+            "to include": "beinhalten / einschließen", "include": "beinhalten / einschließen",
+            "to continue": "fortsetzen / weitermachen", "continue": "fortsetzen / weitermachen",
+            "to set": "setzen / einstellen", "set": "setzen / einstellen",
+            "to learn": "lernen", "learn": "lernen",
+            // "to change": "ändern / wechseln", // 'change' noun exists
+            "to lead": "führen / leiten", "lead": "führen / leiten",
+            "to understand": "verstehen", "understand": "verstehen",
+            // "to watch": "anschauen / beobachten", // 'watch' noun exists
+            "to follow": "folgen", "follow": "folgen",
+            // "to stop": "anhalten / aufhören", // 'stop' noun exists
+            "to create": "erschaffen / erstellen", "create": "erschaffen / erstellen",
+            "to speak": "sprechen", "speak": "sprechen",
+            "to read": "lesen", "read": "lesen",
+            "to allow": "erlauben / zulassen", "allow": "erlauben / zulassen",
+            "to add": "hinzufügen", "add": "hinzufügen",
+            "to spend": "ausgeben / verbringen", "spend": "ausgeben / verbringen",
+            "to grow": "wachsen / anbauen", "grow": "wachsen / anbauen",
+            "to open": "öffnen", // 'open' adj exists
+            "to walk": "gehen / spazieren gehen", "walk": "gehen / spazieren gehen",
+            "to win": "gewinnen", "win": "gewinnen",
+            "to offer": "anbieten", "offer": "anbieten",
+            "to remember": "erinnern / sich erinnern an", "remember": "erinnern",
+            // "to love": "lieben", // 'love' noun exists
+            "to consider": "bedenken / in Betracht ziehen", "consider": "bedenken",
+            "to appear": "erscheinen / scheinen", "appear": "erscheinen",
+            "to buy": "kaufen", "buy": "kaufen",
+            "to wait": "warten", "wait": "warten",
+            "to serve": "dienen / bedienen", "serve": "dienen / bedienen",
+            "to die": "sterben", "die": "sterben",
+            "to send": "senden / schicken", "send": "senden / schicken",
+            "to expect": "erwarten", "expect": "erwarten",
+            "to build": "bauen", "build": "bauen",
+            "to stay": "bleiben", "stay": "bleiben",
+            // "to fall": "fallen", // 'fall' noun exists (autumn)
+            "to cut": "schneiden", "cut": "schneiden",
+            "to reach": "erreichen", "reach": "erreichen",
+            "to kill": "töten / umbringen", "kill": "töten / umbringen",
+            "to remain": "bleiben / verbleiben", "remain": "bleiben / verbleiben",
+            "to suggest": "vorschlagen / andeuten", "suggest": "vorschlagen",
+            "to raise": "erhöhen / heben / aufziehen", "raise": "erhöhen / heben",
+            "to pass": "vorbeigehen / bestehen", "pass": "vorbeigehen / bestehen",
+            "to sell": "verkaufen", "sell": "verkaufen",
+            "to require": "erfordern / benötigen", "require": "erfordern / benötigen",
+            // "to report": "berichten / melden", // 'report' noun exists
+            "to decide": "entscheiden", "decide": "entscheiden",
+            "to pull": "ziehen", "pull": "ziehen",
+            "to break": "brechen / kaputt machen", "break": "brechen",
+            "to dance": "tanzen", "dance": "tanzen",
+            "to draw": "zeichnen / ziehen", "draw": "zeichnen",
+            "to drive": "fahren", "drive": "fahren",
+            // "to eat": "essen", // 'essen' (food) exists
+            "to explain": "erklären", "explain": "erklären",
+            "to fight": "kämpfen", "fight": "kämpfen",
+            "to fill": "füllen", "fill": "füllen",
+            "to fly": "fliegen", "fly": "fliegen",
+            "to forget": "vergessen", "forget": "vergessen",
+            "to forgive": "vergeben / verzeihen", "forgive": "vergeben",
+            "to freeze": "frieren / einfrieren", "freeze": "frieren",
+            "to hate": "hassen", "hate": "hassen",
+            "to hit": "schlagen / treffen", "hit": "schlagen",
+            // "to hope": "hoffen", // 'hope' noun exists
+            "to hurt": "verletzen / wehtun", "hurt": "verletzen",
+            "to imagine": "vorstellen / sich vorstellen", "imagine": "vorstellen",
+            "to invite": "einladen", "invite": "einladen",
+            "to join": "beitreten / mitmachen", "join": "beitreten",
+            "to jump": "springen", "jump": "springen",
+            "to laugh": "lachen", "laugh": "lachen",
+            "to lie": "lügen / liegen", "lie": "lügen / liegen", // (down / tell untruth)
+            "to listen": "zuhören / hören", "listen": "zuhören",
+            "to marry": "heiraten", "marry": "heiraten",
+            "to notice": "bemerken", "notice": "bemerken",
+            // "to order": "bestellen / befehlen", // 'order' noun exists
+            // "to plan": "planen", // 'plan' noun exists
+            "to prefer": "bevorzugen / vorziehen", "prefer": "bevorzugen",
+            "to prepare": "vorbereiten", "prepare": "vorbereiten",
+            "to promise": "versprechen", "promise": "versprechen",
+            "to protect": "beschützen / schützen", "protect": "beschützen",
+            "to provide": "bereitstellen / versorgen", "provide": "bereitstellen",
+            "to publish": "veröffentlichen / publizieren", "publish": "veröffentlichen",
+            "to push": "drücken / schieben", "push": "drücken",
+            "to receive": "erhalten / empfangen", "receive": "erhalten",
+            "to recommend": "empfehlen", "recommend": "empfehlen",
+            "to refuse": "ablehnen / verweigern", "refuse": "ablehnen",
+            "to relax": "entspannen / sich entspannen", "relax": "entspannen",
+            "to repeat": "wiederholen", "repeat": "wiederholen",
+            "to reply": "antworten", "reply": "antworten", // verb
+            "to rest": "ausruhen / sich ausruhen", "rest": "ausruhen",
+            // "to return": "zurückkehren / zurückgeben", // 'return' noun exists
+            "to save": "retten / sparen", "save": "retten / sparen",
+            "to search": "suchen", "search": "suchen",
+            // "to seem": "scheinen", // already have
+            "to share": "teilen", "share": "teilen",
+            "to shine": "scheinen / glänzen", "shine": "scheinen / glänzen",
+            "to shoot": "schießen", "shoot": "schießen",
+            "to shout": "schreien / rufen", "shout": "schreien",
+            "to sing": "singen", "sing": "singen",
+            "to sleep": "schlafen", "sleep": "schlafen",
+            "to smell": "riechen", "smell": "riechen",
+            "to smile": "lächeln", "smile": "lächeln",
+            "to smoke": "rauchen", "smoke": "rauchen",
+            "to solve": "lösen", "solve": "lösen",
+            // "to sound": "klingen / sich anhören", // 'sound' noun exists
+            "to spell": "buchstabieren", "spell": "buchstabieren",
+            // "to stand": "stehen", // already have
+            "to steal": "stehlen", "steal": "stehlen",
+            // "to study": "studieren / lernen", // 'study' noun exists
+            "to succeed": "erfolgreich sein / gelingen", "succeed": "erfolgreich sein",
+            "to suffer": "leiden", "suffer": "leiden",
+            "to swim": "schwimmen", "swim": "schwimmen",
+            "to teach": "lehren / unterrichten", "teach": "lehren",
+            "to thank": "danken", "thank": "danken",
+            "to throw": "werfen", "throw": "werfen",
+            "to touch": "berühren", "touch": "berühren",
+            "to translate": "übersetzen", "translate": "übersetzen",
+            // "to travel": "reisen", // 'travel' noun exists
+            "to treat": "behandeln", "treat": "behandeln",
+            "to trust": "vertrauen", "trust": "vertrauen",
+            "to visit": "besuchen", "visit": "besuchen",
+            "to vote": "wählen / abstimmen", "vote": "wählen",
+            "to wake": "aufwachen / wecken", "wake": "aufwachen",
+            "to wash": "waschen", "wash": "waschen",
+            "to wear": "tragen (Kleidung)", "wear": "tragen",
+            "to wish": "wünschen", "wish": "wünschen",
+            "to wonder": "sich fragen / wundern", "wonder": "sich fragen",
+            "to worry": "sorgen / sich sorgen", "worry": "sorgen",
+
+            // --- Adjectives ---
+            // "good": "gut", // already have
+            // "bad": "schlecht", // already have
+            "large": "groß",
+            "little": "klein",
+            // "new": "neu", // already have
+            // "old": "alt", // already have
+            // "young": "jung", // already have
+            // "long": "lang", // already have
+            // "short": "kurz", // already have
+            // "high": "hoch", // already have
+            // "low": "niedrig / tief", // already have
+            // "easy": "einfach / leicht", // already have
+            "difficult": "schwierig", "hard": "schwer / hart",
+            "beautiful": "schön / hübsch",
+            "ugly": "hässlich",
+            "happy": "glücklich / froh",
+            // "sad": "traurig", // already have
+            "rich": "reich",
+            "poor": "arm",
+            "strong": "stark",
+            // "weak": "schwach", // already have
+            "hot": "heiß",
+            "cold": "kalt",
+            // "warm": "warm", // already have
+            "cool": "kühl",
+            "true": "wahr / echt",
+            "false": "falsch",
+            "right": "richtig / recht", // correct / direction
+            "wrong": "falsch / unrecht",
+            // "early": "früh", // already have
+            // "late": "spät", // already have
+            "fast": "schnell", "quick": "schnell",
+            "slow": "langsam",
+            "dark": "dunkel",
+            // "light": "hell", // color, not heavy; 'light' noun exists
+            "heavy": "schwer", // weight
+            "soft": "weich / sanft",
+            // "hard": "hart", // texture; already have 'hard' for difficult
+            "clean": "sauber",
+            "dirty": "schmutzig",
+            "clear": "klar / deutlich",
+            "red": "rot",
+            "blue": "blau",
+            "green": "grün",
+            "yellow": "gelb",
+            "black": "schwarz",
+            "white": "weiß",
+            "brown": "braun",
+            "gray": "grau", "grey": "grau",
+            "pink": "rosa",
+            "orange": "orange", // color
+            "purple": "lila / violett",
+            "important": "wichtig",
+            "interesting": "interessant",
+            "boring": "langweilig",
+            "possible": "möglich",
+            "impossible": "unmöglich",
+            "free": "frei / kostenlos",
+            "full": "voll",
+            "empty": "leer",
+            // "open": "offen", // verb exists
+            "closed": "geschlossen", "close": "nah", // adjective: near
+            // "near": "nah / in der Nähe", // prep/adv exists
+            // "far": "weit / fern", // prep/adv exists
+            "ready": "fertig / bereit",
+            "sure": "sicher", "certain": "sicher / gewiss",
+            "able": "fähig / in der Lage",
+            "unable": "unfähig",
+            "afraid": "ängstlich / Angst haben",
+            "angry": "wütend / böse",
+            "alive": "lebendig / am Leben",
+            "dead": "tot",
+            // "alone": "allein", // adv exists
+            "amazing": "erstaunlich / unglaublich",
+            "available": "verfügbar / erhältlich",
+            "average": "durchschnittlich",
+            "aware": "bewusst / sich bewusst sein",
+            "basic": "grundlegend / einfach",
+            // "best": "beste / am besten", // adv exists
+            // "better": "besser", // adv exists
+            "brave": "mutig / tapfer",
+            "bright": "hell / klug",
+            "busy": "beschäftigt",
+            "calm": "ruhig / gelassen",
+            "careful": "vorsichtig / sorgfältig",
+            "central": "zentral / mittig",
+            "cheap": "billig / günstig",
+            "chief": "hauptsächlich / Chef-",
+            "civil": "zivil / bürgerlich",
+            "classic": "klassisch",
+            "clever": "klug / schlau",
+            "comfortable": "bequem / komfortabel",
+            "common": "üblich / gemeinsam",
+            "complete": "vollständig / komplett",
+            "complex": "komplex / kompliziert",
+            "concerned": "besorgt / betroffen",
+            "confident": "zuversichtlich / selbstbewusst",
+            "conscious": "bewusst",
+            "content": "zufrieden", // adjective
+            "convenient": "praktisch / bequem",
+            "correct": "korrekt / richtig",
+            "crazy": "verrückt",
+            "critical": "kritisch",
+            "curious": "neugierig",
+            "current": "aktuell / gegenwärtig",
+            "dangerous": "gefährlich",
+            "deep": "tief",
+            "delicious": "lecker / köstlich",
+            "dependent": "abhängig",
+            "different": "verschieden / anders",
+            "direct": "direkt",
+            // "double": "doppelt", // num exists
+            "dry": "trocken",
+            "due": "fällig / geschuldet",
+            "eager": "eifrig / begierig",
+            "effective": "effektiv / wirksam",
+            "efficient": "effizient / leistungsfähig",
+            "electric": "elektrisch",
+            "elegant": "elegant",
+            "enormous": "enorm / riesig",
+            "entire": "ganz / gesamt",
+            "equal": "gleich / ebenbürtig",
+            "essential": "wesentlich / unerlässlich",
+            // "even": "gerade (Zahl) / eben / sogar", // adv exists
+            "every": "jeder / jede / jedes",
+            "exact": "genau / exakt",
+            "excellent": "ausgezeichnet / exzellent",
+            "excited": "aufgeregt / begeistert",
+            "exciting": "aufregend / spannend",
+            "expensive": "teuer",
+            "expert": "fachmännisch / Experte",
+            "extreme": "extrem",
+            "fair": "fair / gerecht / blond (Haare)",
+            "faithful": "treu / loyal",
+            "familiar": "vertraut / bekannt",
+            "famous": "berühmt",
+            "fantastic": "fantastisch",
+            "federal": "bundesstaatlich / föderal",
+            "final": "letzte / endgültig",
+            "financial": "finanziell",
+            "fine": "gut / fein",
+            "firm": "fest / Firma", // adjective & noun
+            // "first": "erste / zuerst", // num/adv exists
+            "fit": "fit / passend",
+            "flat": "flach / Wohnung", // adjective & noun
+            "foreign": "ausländisch / fremd",
+            "formal": "formell",
+            "former": "ehemalig / früher",
+            // "forward": "vorwärts", // adv exists
+            "frequent": "häufig",
+            "fresh": "frisch",
+            "friendly": "freundlich",
+            "front": "vorder- / Vorderseite",
+            "funny": "lustig / komisch",
+            // "future": "zukünftig", // noun exists
+            "general": "allgemein / generell",
+            "generous": "großzügig",
+            "gentle": "sanft / zart",
+            "glad": "froh / erfreut",
+            "global": "global / weltweit",
+            "golden": "golden",
+            "grateful": "dankbar",
+            "great": "großartig / groß",
+            "guilty": "schuldig",
+            "healthy": "gesund",
+            "helpful": "hilfreich",
+            "hidden": "versteckt / verborgen",
+            "holy": "heilig",
+            "honest": "ehrlich",
+            "huge": "riesig / gewaltig",
+            "human": "menschlich",
+            "hungry": "hungrig",
+            "ideal": "ideal",
+            "ill": "krank", "sick": "krank / übel",
+            "illegal": "illegal / ungesetzlich",
+            "immediate": "sofortig / unmittelbar",
+            "independent": "unabhängig / selbstständig",
+            "informal": "informell",
+            "inner": "inner- / innen",
+            "innocent": "unschuldig",
+            "intelligent": "intelligent / klug",
+            "intense": "intensiv / stark",
+            "internal": "intern / innerlich",
+            "international": "international",
+            "joint": "gemeinsam / Gelenk",
+            // "kind": "freundlich / nett / Art", // noun exists
+            "known": "bekannt",
+            // "last": "letzte / dauern", // verb exists
+            // "late": "spät", // adv exists
+            "latter": "letztere / spätere",
+            "legal": "legal / gesetzlich",
+            "left": "links / übrig", // direction / remaining
+            // "less": "weniger", // adv exists
+            // "level": "eben / Niveau", // noun exists
+            // "likely": "wahrscheinlich", // adv exists
+            "limited": "begrenzt / beschränkt",
+            // "live": "lebendig / live (Übertragung)", // verb exists
+            "local": "lokal / örtlich",
+            "lonely": "einsam",
+            "loud": "laut",
+            "lovely": "lieblich / schön",
+            "lucky": "glücklich (Glück habend)",
+            "mad": "verrückt / wütend",
+            "main": "Haupt- / hauptsächlich",
+            "major": "Haupt- / bedeutend",
+            "male": "männlich",
+            // "many": "viele", // pronoun exists
+            "married": "verheiratet",
+            "massive": "massiv / riesig",
+            // "material": "materiell", // noun exists
+            "maximum": "maximal / Maximum",
+            // "mean": "gemein / geizig / durchschnittlich", // verb exists
+            "medical": "medizinisch",
+            "medium": "mittel / Medium",
+            "mental": "mental / geistig",
+            "mere": "bloß / rein",
+            "middle": "mittel / Mitte",
+            "mild": "mild / sanft",
+            "military": "militärisch",
+            "minimum": "minimal / Minimum",
+            "minor": "geringfügig / Moll (Musik)",
+            "missing": "fehlend / vermisst",
+            "mobile": "mobil / beweglich",
+            "modern": "modern",
+            "modest": "bescheiden",
+            // "monthly": "monatlich", // adv exists
+            "moral": "moralisch / Moral",
+            // "more": "mehr", // adv/pronoun exists
+            // "most": "meiste / am meisten", // adv/pronoun exists
+            "multiple": "mehrfach / vielfach",
+            "mysterious": "mysteriös / geheimnisvoll",
+            "naked": "nackt",
+            "narrow": "eng / schmal",
+            "national": "national",
+            "native": "einheimisch / gebürtig",
+            "natural": "natürlich",
+            "naughty": "unanständig / unartig",
+            "neat": "ordentlich / sauber",
+            "necessary": "notwendig / erforderlich",
+            "negative": "negativ",
+            "nervous": "nervös",
+            "neutral": "neutral",
+            // "next": "nächste", // adv exists
+            "nice": "nett / schön",
+            "noble": "edel / adlig",
+            "noisy": "laut / geräuschvoll",
+            "normal": "normal",
+            "numerous": "zahlreich",
+            "obvious": "offensichtlich / klar",
+            "odd": "seltsam / ungerade (Zahl)",
+            "official": "offiziell / Beamter",
+            "ok": "ok / in Ordnung", "okay": "ok / in Ordnung",
+            // "only": "einzig / nur", // adv exists
+            // "opposite": "entgegengesetzt / Gegenteil", // prep exists
+            "oral": "mündlich",
+            "ordinary": "gewöhnlich / alltäglich",
+            "original": "original / ursprünglich",
+            // "other": "andere / anders", // pronoun exists
+            "outer": "äußer- / außen",
+            // "overall": "gesamt / insgesamt", // adv exists
+            "own": "eigen",
+            "pale": "blass / bleich",
+            "parallel": "parallel",
+            "particular": "besonders / bestimmt",
+            // "past": "vergangen", // noun/prep/adv exists
+            // "patient": "geduldig", // noun exists
+            "peaceful": "friedlich / ruhig",
+            "perfect": "perfekt / vollkommen",
+            "permanent": "permanent / dauerhaft",
+            // "personal": "persönlich", // noun exists (staff)
+            "physical": "physisch / körperlich",
+            "plain": "einfach / schlicht / Ebene",
+            "pleasant": "angenehm / erfreulich",
+            "pleased": "erfreut / zufrieden",
+            "polite": "höflich",
+            "political": "politisch",
+            "popular": "beliebt / populär",
+            "positive": "positiv",
+            "powerful": "mächtig / kraftvoll",
+            "practical": "praktisch",
+            "precious": "wertvoll / kostbar",
+            "precise": "präzise / genau",
+            "pregnant": "schwanger",
+            "present": "anwesend / Geschenk / Gegenwart",
+            "previous": "vorherig / früher",
+            "primary": "primär / hauptsächlich",
+            "prime": "Haupt- / erstklassig / Primzahl",
+            // "prior": "vorherig / früher", // adv exists
+            "private": "privat",
+            "probable": "wahrscheinlich",
+            "professional": "professionell / beruflich",
+            "proper": "angemessen / richtig",
+            "proud": "stolz",
+            "public": "öffentlich",
+            "pure": "rein / pur",
+            "quiet": "leise / ruhig",
+            "radical": "radikal",
+            "random": "zufällig / wahllos",
+            "rapid": "schnell / rapide",
+            "rare": "selten",
+            "raw": "roh",
+            "real": "echt / wirklich",
+            "realistic": "realistisch",
+            "reasonable": "vernünftig / angemessen",
+            "recent": "kürzlich / neu",
+            "regular": "regelmäßig / normal",
+            "related": "verwandt / verbunden",
+            "relevant": "relevant / wichtig",
+            "reliable": "zuverlässig / verlässlich",
+            "religious": "religiös",
+            "remarkable": "bemerkenswert / außergewöhnlich",
+            "remote": "fern / abgelegen",
+            "responsible": "verantwortlich / zuständig",
+            "revolutionary": "revolutionär",
+            // "right": "richtig / rechts", // adv exists
+            "rigid": "starr / steif",
+            "romantic": "romantisch",
+            "rough": "rau / grob",
+            // "round": "rund", // prep/adv exists
+            "royal": "königlich",
+            "rude": "unhöflich / grob",
+            // "sad": "traurig", // already have
+            "safe": "sicher / ungefährlich",
+            "same": "gleich / derselbe",
+            "satisfied": "zufrieden",
+            "scared": "verängstigt / Angst haben",
+            "scientific": "wissenschaftlich",
+            "secondary": "sekundär / zweitrangig",
+            "secret": "geheim / Geheimnis",
+            "secure": "sicher / gesichert",
+            "select": "ausgewählt / auswählen",
+            "selected": "ausgewählt",
+            "selfish": "egoistisch / selbstsüchtig",
+            "senior": "älter / Senior",
+            "sensible": "vernünftig / sinnvoll",
+            "sensitive": "sensibel / empfindlich",
+            "separate": "getrennt / separat",
+            "serious": "ernst / ernsthaft",
+            // "several": "mehrere / einige", // pronoun exists
+            "severe": "schwer / streng",
+            "shallow": "flach / seicht",
+            "sharp": "scharf",
+            "shiny": "glänzend",
+            "shocked": "schockiert / erschüttert",
+            // "short": "kurz", // already have
+            "shy": "schüchtern",
+            "silent": "still / leise",
+            "silly": "albern / dumm",
+            "similar": "ähnlich",
+            "simple": "einfach",
+            "sincere": "aufrichtig / ehrlich",
+            "single": "einzeln / Single",
+            "slight": "geringfügig / leicht",
+            "smart": "klug / schlau",
+            "smooth": "glatt / sanft",
+            "social": "sozial / gesellschaftlich",
+            // "soft": "weich / sanft", // already have
+            "solid": "fest / solide",
+            // "sorry": "leid tun / entschuldigen", // expression
+            "sour": "sauer",
+            "southern": "südlich",
+            "special": "besonders / speziell",
+            "specific": "spezifisch / bestimmt",
+            "spiritual": "spirituell / geistig",
+            "square": "quadratisch / Platz",
+            "stable": "stabil",
+            // "standard": "Standard-", // noun exists
+            "stark": "krass / streng / absolut",
+            "steady": "beständig / fest",
+            "steep": "steil",
+            "sticky": "klebrig",
+            "stiff": "steif",
+            // "still": "still / ruhig / immer noch", // adv exists
+            "straight": "gerade / direkt",
+            "strange": "seltsam / fremd",
+            "strict": "streng",
+            "striped": "gestreift",
+            "stupid": "dumm / blöd",
+            "subjective": "subjektiv",
+            "sudden": "plötzlich",
+            "sufficient": "ausreichend / genügend",
+            "suitable": "geeignet / passend",
+            "sunny": "sonnig",
+            "super": "super / toll",
+            "superior": "überlegen / Vorgesetzter",
+            "surprised": "überrascht",
+            "surprising": "überraschend",
+            "sweet": "süß",
+            "swift": "schnell / flink",
+            "tall": "groß (Person)",
+            "tame": "zahm",
+            "technical": "technisch",
+            "temporary": "temporär / vorübergehend",
+            "tender": "zart / sanft",
+            "tense": "angespannt / Zeitform (Grammatik)",
+            "terrible": "schrecklich / furchtbar",
+            "thick": "dick / dicht",
+            "thin": "dünn / mager",
+            "thirsty": "durstig",
+            "thorough": "gründlich / sorgfältig",
+            "tight": "eng / fest",
+            "tiny": "winzig / sehr klein",
+            "tired": "müde",
+            "tough": "zäh / hart / schwierig",
+            "traditional": "traditionell",
+            "transparent": "transparent / durchsichtig",
+            "tremendous": "enorm / gewaltig",
+            "tropical": "tropisch",
+            // "true": "wahr / echt", // already have
+            "typical": "typisch",
+            "ultimate": "letztendlich / ultimativ",
+            "uncomfortable": "unbequem / ungemütlich",
+            "unconscious": "bewusstlos",
+            "underground": "unterirdisch / Untergrund",
+            "unique": "einzigartig / einmalig",
+            "united": "vereint / vereinigt",
+            "universal": "universell / allgemein",
+            "unknown": "unbekannt",
+            "unlikely": "unwahrscheinlich",
+            "unnecessary": "unnötig / überflüssig",
+            "unpleasant": "unangenehm",
+            "unusual": "ungewöhnlich / seltsam",
+            "upper": "ober- / obere",
+            "upset": "verärgert / aufgebracht / Magenverstimmung",
+            "urban": "städtisch / urban",
+            "urgent": "dringend / eilig",
+            "used": "gebraucht / gewöhnt an",
+            "useful": "nützlich / brauchbar",
+            "useless": "nutzlos / unbrauchbar",
+            "usual": "üblich / gewöhnlich",
+            "vague": "vage / unklar",
+            "valid": "gültig",
+            "valuable": "wertvoll / kostbar",
+            "various": "verschieden / vielfältig",
+            "vast": "riesig / gewaltig / enorm",
+            "verbal": "verbal / mündlich",
+            "vertical": "vertikal / senkrecht",
+            "violent": "gewalttätig / heftig",
+            "virtual": "virtuell",
+            "visible": "sichtbar",
+            "visual": "visuell / optisch",
+            "vital": "lebenswichtig / vital",
+            "voluntary": "freiwillig / ehrenamtlich",
+            // "warm": "warm", // already have
+            // "weak": "schwach", // already have
+            "wealthy": "wohlhabend / reich",
+            // "weekly": "wöchentlich", // adv exists
+            "weird": "seltsam / komisch",
+            "welcome": "willkommen",
+            // "well": "gut", // adv exists
+            "wet": "nass / feucht",
+            "wide": "breit / weit",
+            "wild": "wild",
+            "willing": "bereit / willig",
+            "wise": "weise / klug",
+            "wonderful": "wunderbar / herrlich",
+            "wooden": "hölzern / aus Holz",
+            "worried": "besorgt",
+            "worse": "schlechter / schlimmer",
+            "worst": "schlechteste / schlimmste",
+            "worth": "wert / Wert sein",
+            "written": "geschrieben",
+            // "wrong": "falsch / unrecht", // already have
+            // "yearly": "jährlich", // adv exists
+
+            // --- Adverbs ---
+            "always": "immer",
+            "never": "nie / niemals",
+            "often": "oft / häufig",
+            "sometimes": "manchmal / gelegentlich",
+            "usually": "normalerweise / gewöhnlich",
+            "rarely": "selten", "seldom": "selten",
+            "here": "hier",
+            "there": "dort / da",
+            "now": "jetzt / nun",
+            "then": "dann / damals",
+            "today": "heute",
+            "yesterday": "gestern",
+            "tomorrow": "morgen",
+            "soon": "bald",
+            // "late": "spät", // adj exists
+            // "early": "früh", // adj exists
+            "quickly": "schnell",
+            "slowly": "langsam",
+            "very": "sehr",
+            "too": "zu / auch",
+            "also": "auch / ebenfalls",
+            // "only": "nur / erst", // adj exists
+            // "well": "gut", // adj exists
+            "badly": "schlecht",
+            "really": "wirklich / echt",
+            "almost": "fast / beinahe",
+            "already": "schon / bereits",
+            // "still": "immer noch / trotzdem", // adj exists
+            // "even": "sogar / selbst", // adj exists
+            "just": "gerade / nur / eben",
+            // "perhaps": "vielleicht", // phrase exists
+            "probably": "wahrscheinlich",
+            "certainly": "sicherlich / bestimmt", "definitely": "definitiv / bestimmt",
+            "actually": "eigentlich / tatsächlich",
+            "especially": "besonders / vor allem",
+            "finally": "schließlich / endlich",
+            "generally": "im Allgemeinen / generell",
+            "however": "jedoch / aber",
+            "instead": "stattdessen / anstatt",
+            "later": "später",
+            "mainly": "hauptsächlich / vorwiegend",
+            "merely": "bloß / lediglich",
+            "moreover": "außerdem / darüber hinaus",
+            "mostly": "meistens / größtenteils",
+            "nearly": "fast / beinahe",
+            "normally": "normalerweise",
+            "obviously": "offensichtlich",
+            // "once": "einmal / sobald", // conj exists
+            "particularly": "besonders / insbesondere",
+            "possibly": "möglicherweise / eventuell",
+            "presently": "gegenwärtig / bald",
+            "rather": "eher / ziemlich / vielmehr",
+            "recently": "kürzlich / neulich",
+            "simply": "einfach / lediglich",
+            // "since": "seit / da (Grund)", // conj/prep exists
+            // "so": "so / also / deshalb", // conj exists
+            "specifically": "speziell / konkret",
+            // "suddenly": "plötzlich", // adj exists
+            "surely": "sicherlich / bestimmt",
+            "therefore": "deshalb / daher",
+            "thus": "somit / daher / folglich",
+            "together": "zusammen / gemeinsam",
+            "truly": "wirklich / wahrhaft",
+            "typically": "typischerweise",
+            "ultimately": "letztendlich / schließlich",
+            "unfortunately": "leider / unglücklicherweise",
+            // "usually": "normalerweise / gewöhnlich", // already have
+            // "while": "während / obwohl", // conj exists
+            // "yet": "noch / schon / dennoch", // conj exists
+            "abroad": "im Ausland / ins Ausland",
+            "again": "wieder / nochmal",
+            "ago": "vor (zeitlich)",
+            "ahead": "voraus / vorne",
+            // "almost": "fast / beinahe", // already have
+            // "alone": "allein", // adj exists
+            "aloud": "laut (sprechen)",
+            "altogether": "insgesamt / völlig",
+            "anyway": "trotzdem / jedenfalls",
+            "anywhere": "irgendwo / überallhin",
+            "apart": "auseinander / getrennt",
+            // "around": "herum / ungefähr", // prep exists
+            // "as": "als / wie / da (Grund)", // conj/prep exists
+            "aside": "beiseite / abgesehen von",
+            "away": "weg / fort",
+            "back": "zurück / hinten", // adverb
+            "backward": "rückwärts", "backwards": "rückwärts",
+            // "before": "vorher / bevor", // prep/conj exists
+            // "behind": "dahinter / hinten", // prep exists
+            // "below": "unten / darunter", // prep exists
+            // "best": "am besten", // adj exists
+            // "better": "besser", // adj exists
+            "briefly": "kurz / flüchtig",
+            "carefully": "vorsichtig / sorgfältig",
+            "cheaply": "billig / günstig",
+            "clearly": "klar / deutlich",
+            "closely": "eng / genau",
+            "completely": "vollständig / komplett",
+            "consequently": "folglich / infolgedessen",
+            "constantly": "ständig / dauernd",
+            "correctly": "richtig / korrekt",
+            "daily": "täglich",
+            "deeply": "tief / zutiefst",
+            "directly": "direkt / unmittelbar",
+            // "down": "hinunter / unten", // prep exists
+            "downstairs": "unten / treppab",
+            "downtown": "in die Innenstadt / in der Innenstadt",
+            "easily": "leicht / mühelos",
+            "effectively": "effektiv / wirksam",
+            // "either": "entweder / auch (bei Negation)", // pronoun/conj exists
+            "else": "sonst / anders",
+            "elsewhere": "anderswo / anderswohin",
+            // "enough": "genug / ausreichend", // pronoun exists
+            "equally": "gleich / gleichermaßen",
+            "eventually": "schließlich / irgendwann",
+            "ever": "jemals / immer",
+            "everywhere": "überall / überallhin",
+            "exactly": "genau / exakt",
+            "extremely": "extrem / äußerst",
+            "fairly": "ziemlich / fair",
+            // "far": "weit / fern", // adj/prep exists
+            // "fast": "schnell", // adj exists
+            "forth": "vorwärts / hervor",
+            // "forward": "vorwärts", // adj exists
+            "frequently": "häufig / oft",
+            "fully": "vollständig / ganz",
+            "further": "weiter / ferner", "furthermore": "außerdem / darüber hinaus",
+            "gently": "sanft / behutsam",
+            "gladly": "gerne",
+            "gradually": "allmählich / langsam",
+            "greatly": "sehr / in hohem Maße",
+            // "hard": "hart / schwer", // adj exists
+            "hardly": "kaum / schwerlich",
+            "hence": "daher / folglich",
+            "honestly": "ehrlich gesagt / aufrichtig",
+            "hopefully": "hoffentlich",
+            // "how": "wie", // question word exists
+            "immediately": "sofort / unverzüglich",
+            "indeed": "in der Tat / tatsächlich",
+            "indoors": "drinnen / im Haus",
+            // "inside": "drinnen / innen", // prep exists
+            "instantly": "sofort / augenblicklich",
+            "jointly": "gemeinsam",
+            "kindly": "freundlicherweise / gütig",
+            "largely": "größtenteils / weitgehend",
+            "lastly": "schließlich / zuletzt",
+            "least": "am wenigsten",
+            // "less": "weniger", // adj exists
+            "lightly": "leicht / sanft",
+            // "likely": "wahrscheinlich", // adj exists
+            "literally": "buchstäblich / wörtlich",
+            "loudly": "laut",
+            // "low": "niedrig / tief", // adj exists
+            // "maybe": "vielleicht", // phrase exists
+            "meanwhile": "inzwischen / währenddessen",
+            // "monthly": "monatlich", // adj exists
+            // "more": "mehr", // adj/pronoun exists
+            // "most": "am meisten", // adj/pronoun exists
+            // "much": "viel / sehr", // adj/pronoun exists
+            "naturally": "natürlich / selbstverständlich",
+            "nearby": "in der Nähe / nahebei",
+            "necessarily": "notwendigerweise / zwangsläufig",
+            "neither": "weder / auch nicht",
+            "newly": "neu / kürzlich",
+            // "next": "als nächstes / dann", // adj exists
+            "nicely": "nett / schön",
+            // "no": "nein / nicht", // phrase exists
+            "nonetheless": "dennoch / trotzdem", "nevertheless": "dennoch / trotzdem",
+            // "nor": "noch / auch nicht", // conj exists
+            "not": "nicht",
+            "nowadays": "heutzutage / gegenwärtig",
+            "nowhere": "nirgends / nirgendwohin",
+            "occasionally": "gelegentlich / ab und zu",
+            // "off": "aus / weg / frei (Arbeit)", // prep exists
+            "officially": "offiziell",
+            // "on": "an / auf / weiter", // prep exists (adverbial use 'go on')
+            "online": "online",
+            "openly": "offen / ehrlich",
+            "otherwise": "sonst / andernfalls",
+            // "out": "hinaus / draußen / aus", // prep exists
+            "outdoors": "draußen / im Freien",
+            // "outside": "draußen / außerhalb", // prep exists
+            // "over": "vorbei / hinüber / über", // prep exists
+            // "overall": "insgesamt / im Großen und Ganzen", // adj exists
+            "overhead": "über Kopf / oben",
+            "overnight": "über Nacht",
+            "overseas": "im Ausland / in Übersee",
+            "partly": "teilweise",
+            // "past": "vorbei", // prep/noun/adj exists
+            "perfectly": "perfekt / vollkommen",
+            "personally": "persönlich",
+            "plenty": "reichlich / genug",
+            "politely": "höflich",
+            "poorly": "schlecht / dürftig",
+            "positively": "positiv / entschieden",
+            "previously": "vorher / zuvor",
+            "primarily": "hauptsächlich / primär",
+            // "prior": "zuvor / vorher", // adj exists
+            "privately": "privat / unter vier Augen",
+            "promptly": "prompt / unverzüglich",
+            "properly": "richtig / ordnungsgemäß",
+            "publicly": "öffentlich",
+            "purely": "rein / lediglich",
+            "quarterly": "vierteljährlich",
+            "quietly": "leise / ruhig",
+            "quite": "ziemlich / ganz",
+            "randomly": "zufällig / wahllos",
+            "rapidly": "schnell / rapide",
+            "readily": "bereitwillig / leicht",
+            "regardless": "ungeachtet / trotzdem",
+            "regularly": "regelmäßig",
+            "relatively": "relativ / verhältnismäßig",
+            "remarkably": "bemerkenswert / erstaunlich",
+            "remotely": "entfernt / vage",
+            "repeatedly": "wiederholt / mehrmals",
+            "reportedly": "berichten zufolge / angeblich",
+            "respectively": "jeweils / beziehungsweise",
+            // "right": "genau / direkt / rechts", // adj/prep exists
+            "roughly": "ungefähr / grob",
+            // "round": "herum", // prep exists
+            "sadly": "leider / traurigerweise",
+            "safely": "sicher / gefahrlos",
+            "scarcely": "kaum / knapp",
+            "secondly": "zweitens",
+            "secretly": "heimlich / insgeheim",
+            "seemingly": "scheinbar / anscheinend",
+            "seriously": "ernsthaft / im Ernst",
+            "severely": "schwer / stark",
+            "sharply": "scharf / plötzlich",
+            "shortly": "kurz / bald",
+            "sideways": "seitwärts",
+            "significantly": "deutlich / erheblich",
+            "silently": "still / schweigend",
+            "similarly": "ähnlich / ebenso",
+            "simultaneously": "gleichzeitig / simultan",
+            "slightly": "leicht / ein wenig",
+            // "slowly": "langsam", // already have
+            "smoothly": "reibungslos / glatt",
+            "softly": "leise / sanft",
+            "solely": "einzig / ausschließlich",
+            "somehow": "irgendwie",
+            "sometime": "irgendwann",
+            "somewhat": "etwas / einigermaßen",
+            "somewhere": "irgendwo / irgendwohin",
+            // "soon": "bald", // already have
+            "soundly": "fest (schlafen) / gründlich",
+            "specially": "speziell / extra",
+            "steadily": "stetig / beständig",
+            "steeply": "steil",
+            // "straight": "geradeaus / direkt", // adj exists
+            "strangely": "seltsamerweise / komischerweise",
+            "strictly": "streng / strikt",
+            "strongly": "stark / dringend",
+            "subsequently": "anschließend / danach",
+            "successfully": "erfolgreich",
+            // "such": "solch / so", // pronoun exists
+            "sufficiently": "ausreichend / genügend",
+            "suitably": "angemessen / passend",
+            "supposedly": "angeblich / vermutlich",
+            "surprisingly": "überraschenderweise",
+            "swiftly": "schnell / flink",
+            "temporarily": "vorübergehend / zeitweilig",
+            "tenderly": "zärtlich / sanft",
+            // "terribly": "schrecklich / furchtbar", // adj exists (terrible)
+            "thankfully": "dankbarerweise / glücklicherweise",
+            "thence": "von dort / daher",
+            "thereafter": "danach / anschließend",
+            "thereby": "dadurch / somit",
+            // "therefore": "deshalb / daher", // already have
+            "thirdly": "drittens",
+            "thoroughly": "gründlich / sorgfältig",
+            // "though": "obwohl / jedoch", // conj exists
+            // "thus": "somit / daher / folglich", // already have
+            "tightly": "fest / eng",
+            // "today": "heute", // already have
+            // "tomorrow": "morgen", // already have
+            "tonight": "heute Abend",
+            // "too": "zu / auch", // already have
+            "totally": "total / völlig",
+            "traditionally": "traditionell",
+            // "truly": "wirklich / wahrhaft", // already have
+            "twice": "zweimal",
+            // "typically": "typischerweise", // already have
+            "unanimously": "einstimmig",
+            "undoubtedly": "zweifellos / unzweifelhaft",
+            "unexpectedly": "unerwartet",
+            // "unfortunately": "leider / unglücklicherweise", // already have
+            "up": "hinauf / oben",
+            "upstairs": "oben / treppauf",
+            "upward": "aufwärts", "upwards": "aufwärts",
+            // "usually": "normalerweise / gewöhnlich", // already have
+            "utterly": "völlig / absolut",
+            "vaguely": "vage / unklar",
+            "vastly": "enorm / gewaltig",
+            "verbally": "verbal / mündlich",
+            "vertically": "vertikal / senkrecht",
+            "violently": "gewaltsam / heftig",
+            "virtually": "praktisch / so gut wie",
+            "visually": "visuell / optisch",
+            "voluntarily": "freiwillig",
+            "warmly": "warm / herzlich",
+            // "weekly": "wöchentlich", // adj exists
+            // "well": "gut", // adj/adv exists
+            // "when": "wann / als (zeitlich)", // conj/question exists
+            // "whenever": "wann immer / jedes Mal wenn", // conj exists
+            // "where": "wo / wohin", // conj/question exists
+            // "whereas": "während / wohingegen", // conj exists
+            "whereby": "wodurch / womit",
+            // "wherever": "wo auch immer / überall wo", // conj exists
+            // "whether": "ob", // conj exists
+            "whilst": "während",
+            "wholly": "ganz / völlig",
+            // "why": "warum / wieso / weshalb", // question exists
+            "widely": "weit / verbreitet",
+            "willingly": "bereitwillig / gerne",
+            "wisely": "weise / klug",
+            // "within": "innerhalb / drinnen", // prep exists
+            // "without": "ohne / draußen", // prep exists
+            "wonderfully": "wunderbar / herrlich",
+            // "yearly": "jährlich", // adj exists
+            // "yes": "ja", // phrase exists
+            // "yesterday": "gestern", // already have
+
+            // --- Prepositions ---
+            "about": "über / ungefähr",
+            "above": "über / oberhalb",
+            "across": "über / hinüber / quer durch",
+            "after": "nach / nachdem",
+            "against": "gegen / dagegen",
+            "along": "entlang",
+            "among": "unter / zwischen (mehreren)", "amongst": "unter / zwischen (mehreren)",
+            // "around": "um / herum / ungefähr", // adv exists
+            "at": "an / bei / um (Uhrzeit)",
+            // "before": "vor / bevor", // adv/conj exists
+            // "behind": "hinter", // adv exists
+            // "below": "unter / unterhalb", // adv exists
+            "beneath": "unter / unterhalb",
+            "beside": "neben", "besides": "außerdem / neben",
+            "between": "zwischen (zwei)",
+            "beyond": "jenseits / über ... hinaus",
+            // "but": "außer / aber", // conj exists (prepositional use)
+            "by": "bei / von / bis / mit (Mittel)",
+            "concerning": "bezüglich / betreffend",
+            "despite": "trotz", "in spite of": "trotz",
+            // "down": "hinunter / entlang", // adv exists
+            "during": "während (Zeit)",
+            "except": "außer / ausgenommen",
+            // "for": "für / seit (Dauer)", // conj exists
+            "from": "von / aus / seit (Zeitpunkt)",
+            "in": "in / im",
+            // "inside": "innerhalb / drinnen", // adv exists
+            "into": "in ... hinein / in",
+            "like": "wie / ähnlich", // preposition
+            // "near": "nahe / in der Nähe von", // adj/adv exists
+            "of": "von / aus (Material)",
+            // "off": "von ... herunter / weg von", // adv exists
+            // "on": "auf / an (Tag)", // adv exists
+            "onto": "auf ... hinauf",
+            // "opposite": "gegenüber", // adj exists
+            // "out": "aus ... heraus", // adv exists
+            // "outside": "außerhalb / draußen vor", // adv exists
+            // "over": "über / hinüber", // adv exists
+            // "past": "vorbei an / nach (Uhrzeit)", // noun/adj/adv exists
+            "per": "pro / je",
+            "plus": "plus / zuzüglich",
+            "regarding": "bezüglich / hinsichtlich",
+            // "round": "um ... herum", // adj/adv exists
+            // "since": "seit (Zeitpunkt)", // conj/adv exists
+            // "than": "als (Vergleich)", // conj exists
+            "through": "durch / hindurch", "throughout": "durchgehend / während der gesamten Zeit",
+            "to": "zu / nach / bis",
+            "toward": "in Richtung / auf ... zu", "towards": "in Richtung / auf ... zu",
+            "under": "unter", "underneath": "unter / darunter",
+            "unlike": "anders als / im Gegensatz zu",
+            // "until": "bis", // conj exists
+            "till": "bis",
+            // "up": "hinauf / entlang", // adv exists
+            "upon": "auf / auf ... hinauf", // more formal 'on'
+            "via": "über / via",
+            "with": "mit",
+            "within": "innerhalb",
+            "without": "ohne",
+
+            // --- Conjunctions ---
+            "and": "und",
+            "or": "oder",
+            // "but": "aber / sondern", // prep use exists
+            // "nor": "noch (in 'weder ... noch')", // adv exists
+            // "for": "denn (Grund)", // prep exists
+            // "so": "also / deshalb", // adv exists
+            // "yet": "dennoch / doch", // adv exists
+            // "after": "nachdem", // prep exists
+            "although": "obwohl / obgleich", // 'though' as adv exists
+            // "as": "als / da / wie", // prep/adv exists
+            "as if": "als ob", "as though": "als ob",
+            "as long as": "solange",
+            "as soon as": "sobald",
+            "because": "weil / da",
+            // "before": "bevor / ehe", // prep/adv exists
+            "even if": "selbst wenn / auch wenn",
+            "even though": "obwohl / auch wenn",
+            "if": "wenn / falls",
+            "in case": "falls / für den Fall, dass",
+            "in order that": "damit / um zu",
+            "lest": "damit nicht / dass nicht",
+            // "once": "sobald / als", // adv exists
+            "only if": "nur wenn",
+            "provided that": "vorausgesetzt, dass", "providing that": "vorausgesetzt, dass",
+            "rather than": "anstatt / eher als",
+            // "since": "da / seitdem", // prep/adv exists
+            "so that": "damit / sodass",
+            // "than": "als", // prep exists (comparative)
+            "that": "dass", // conjunction
+            "unless": "es sei denn / außer wenn",
+            // "until": "bis", // prep exists
+            // "when": "wenn / als", // adv/question exists
+            // "whenever": "wann immer / jedes Mal wenn", // adv exists
+            // "where": "wo", // adv/question exists (spatial)
+            // "whereas": "während / wohingegen", // adv exists
+            // "wherever": "wo auch immer", // adv exists
+            // "whether": "ob", // adv exists
+            // "while": "während / obwohl", // adv exists
+
+            // --- Pronouns ---
+            "i": "ich", "me": "mich / mir", "my": "mein/meine/mein", "mine": "meiner/meine/meines", "myself": "mich (selbst) / mir (selbst)",
+            "you": "du / Sie", "your": "dein/deine/dein / Ihr/Ihre/Ihr", "yours": "deiner/deine/deines / Ihrer/Ihre/Ihres", "yourself": "dich (selbst) / dir (selbst)", "yourselves": "euch (selbst)",
+            "he": "er", "him": "ihn / ihm", "his": "sein/seine/sein", "himself": "sich (selbst)",
+            "she": "sie", "her": "sie / ihr", "hers": "ihrer/ihre/ihres", "herself": "sich (selbst)",
+            "it": "es", "its": "sein/seine/sein (sächlich)", "itself": "sich (selbst)",
+            "we": "wir", "us": "uns", "our": "unser/unsere/unser", "ours": "unserer/unsere/unseres", "ourselves": "uns (selbst)",
+            "they": "sie (Plural)", "them": "sie / ihnen", "their": "ihr/ihre/ihr (Plural)", "theirs": "ihrer/ihre/ihres (Plural)", "themselves": "sich (selbst)",
+            // "this": "dieser/diese/dieses", // noun/adj/phrase exists
+            "these": "diese (Plural)",
+            // "that": "jener/jene/jenes / das / der / die", // conj/noun/adj/phrase exists
+            "those": "jene (Plural) / die (Plural)",
+            "who": "wer / der/die/das (Relativpronomen)", "whom": "wen / wem / dem/den/der (Relativpronomen)", "whose": "wessen / dessen/deren",
+            "which": "welcher/welche/welches / der/die/das (Relativpronomen)",
+            // "what": "was", // question/adj/phrase exists
+            "all": "alle / alles",
+            "any": "irgendein / jeder / etwas / nichts (in Fragen/Neg.)",
+            "anyone": "irgendjemand / jeder", "anybody": "irgendjemand / jeder", "anything": "irgendetwas / alles",
+            "both": "beide",
+            "each": "jeder/jede/jedes",
+            // "either": "einer von beiden / jeder von beiden", // adv/conj exists
+            // "enough": "genug", // adv exists
+            "everybody": "jeder / alle", "everyone": "jeder / alle", "everything": "alles",
+            "few": "wenige / ein paar", "a few": "einige / ein paar",
+            // "little": "wenig", // adj exists
+            "a little": "ein wenig / etwas",
+            // "many": "viele", // adj exists
+            // "more": "mehr", // adj/adv exists
+            // "most": "die meisten / das meiste", // adj/adv exists
+            // "much": "viel", // adj/adv exists
+            // "neither": "keiner von beiden", // adv exists
+            "no one": "niemand", "nobody": "niemand", "none": "keiner / keine / keines", "nothing": "nichts",
+            // "one": "man / einer/eine/eines", // num exists
+            // "other": "andere", // adj exists
+            "another": "ein anderer / eine andere / ein anderes / noch ein",
+            "others": "andere (Plural)", "the others": "die anderen",
+            // "several": "mehrere / einige", // adj exists
+            "some": "einige / etwas",
+            "somebody": "jemand", "someone": "jemand", "something": "etwas",
+            // "such": "solch einer / eine solche / ein solches", // adv exists
+            "whatever": "was auch immer / egal was",
+            "whichever": "welcher auch immer / egal welcher",
+            "whoever": "wer auch immer / egal wer", "whomever": "wen auch immer / egal wen",
+
+            // --- Numbers ---
+            "zero": "null",
+            "one": "eins",
+            "two": "zwei",
+            "three": "drei",
+            "four": "vier",
+            "five": "fünf",
+            "six": "sechs",
+            "seven": "sieben",
+            "eight": "acht",
+            "nine": "neun",
+            "ten": "zehn",
+            "eleven": "elf",
+            "twelve": "zwölf",
+            "thirteen": "dreizehn",
+            "fourteen": "vierzehn",
+            "fifteen": "fünfzehn",
+            "sixteen": "sechzehn",
+            "seventeen": "siebzehn",
+            "eighteen": "achtzehn",
+            "nineteen": "neunzehn",
+            "twenty": "zwanzig",
+            "thirty": "dreißig",
+            "forty": "vierzig",
+            "fifty": "fünfzig",
+            "sixty": "sechzig",
+            "seventy": "siebzig",
+            "eighty": "achtzig",
+            "ninety": "neunzig",
+            "hundred": "hundert", "one hundred": "einhundert",
+            "thousand": "tausend", "one thousand": "eintausend",
+            "million": "Million", "one million": "eine Million",
+            "billion": "Milliarde", // Note: US billion = German Milliarde
+            // "first": "erste(r)", // adj/adv exists
+            "second": "zweite(r)", // noun/adj 'second' exists
+            "third": "dritte(r)",
+            "fourth": "vierte(r)",
+            "fifth": "fünfte(r)",
+            "half": "halb / Hälfte",
+            "quarter": "Viertel",
+            // "double": "doppelt", // adj exists
+            "triple": "dreifach",
+            "percent": "Prozent",
+
+            // --- Question Words ---
+            // "what": "was", // already have
+            // "who": "wer", // already have
+            // "whom": "wem / wen", // already have
+            // "whose": "wessen", // already have
+            // "which": "welcher/welche/welches", // already have
+            // "when": "wann", // already have
+            // "where": "wo / wohin", // already have
+            // "why": "warum / wieso / weshalb", // already have
+            // "how": "wie", // already have
+            "how much": "wie viel",
+            "how many": "wie viele",
+            "how often": "wie oft",
+            "how long": "wie lange",
+            "how far": "wie weit",
+            "how old": "wie alt",
+
+            // --- Common Phrases & Greetings ---
+            "hello": "hallo / guten Tag", "hi": "hallo / hi",
+            "good morning": "guten Morgen",
+            "good afternoon": "guten Tag / guten Nachmittag",
+            "good evening": "guten Abend",
+            "good night": "gute Nacht",
+            "goodbye": "auf Wiedersehen / tschüss", "bye": "tschüss / ciao",
+            "please": "bitte",
+            "thank you": "danke / danke schön", "thanks": "danke",
+            "you're welcome": "bitte schön / gern geschehen", "not at all": "keine Ursache / gern geschehen",
+            "yes": "ja",
+            "no": "nein",
+            "excuse me": "Entschuldigung / Verzeihung", "pardon me": "Entschuldigung / Verzeihung",
+            // "sorry": "Entschuldigung / es tut mir leid", // adj exists
+            "how are you?": "wie geht es Ihnen? / wie geht es dir?",
+            "i am fine": "mir geht es gut / danke, gut", "i'm fine": "mir geht es gut",
+            "what is your name?": "wie heißen Sie? / wie heißt du?",
+            "my name is": "mein Name ist / ich heiße",
+            "nice to meet you": "schön, Sie kennenzulernen / schön, dich kennenzulernen / freut mich",
+            "see you later": "bis später / auf bald", "see you soon": "bis bald",
+            "i don't know": "ich weiß nicht",
+            "i don't understand": "ich verstehe nicht",
+            "can you help me?": "können Sie mir helfen? / kannst du mir helfen?",
+            "i need help": "ich brauche Hilfe",
+            "where is...?": "wo ist...?", "where is the toilet?": "wo ist die Toilette?",
+            "how much is this?": "wie viel kostet das?",
+            "i would like...": "ich möchte... / ich hätte gern...",
+            "cheers": "prost / zum Wohl", // for a toast
+            "bless you": "Gesundheit", // after sneeze
+            "congratulations": "Glückwunsch / herzlichen Glückwunsch",
+            "good luck": "viel Glück",
+            "happy birthday": "alles Gute zum Geburtstag / herzlichen Glückwunsch zum Geburtstag",
+            "happy new year": "frohes neues Jahr / guten Rutsch",
+            "merry christmas": "frohe Weihnachten",
+            "i love you": "ich liebe dich",
+            "i miss you": "ich vermisse dich / du fehlst mir",
+            "of course": "natürlich / selbstverständlich",
+            // "maybe": "vielleicht", // adv exists
+            "what time is it?": "wie spät ist es? / wie viel Uhr ist es?",
+            "it's okay": "es ist in Ordnung / macht nichts", "that's okay": "das ist in Ordnung",
+            "no problem": "kein Problem",
+            "take care": "pass auf dich auf / mach's gut",
+            "have a nice day": "schönen Tag noch",
+            "have a good trip": "gute Reise",
+            "bon appetit": "guten Appetit",
+            // "this is a test": "das ist ein Test", // "test" noun exists
+            "translate this sentence": "übersetze diesen Satz",
+            "what does this mean?": "was bedeutet das?",
+            "i agree": "ich stimme zu / ich bin einverstanden",
+            "i disagree": "ich stimme nicht zu / ich bin nicht einverstanden",
+            "i think so": "ich denke schon / ich glaube schon",
+            "i don't think so": "ich denke nicht / ich glaube nicht",
+            "just a moment": "einen Moment bitte / Augenblick bitte",
+            "what's up?": "was geht? / was ist los?",
+            "long time no see": "lange nicht gesehen",
+            "never mind": "macht nichts / egal",
+            "shut up": "halt den Mund / sei still", // rude
+            "what the hell?": "was zum Teufel?", // rude
+            "oh my god": "oh mein Gott", "omg": "omg / oh mein Gott",
+            "i'm sorry": "es tut mir leid",
+            "i'm tired": "ich bin müde",
+            "i'm hungry": "ich habe Hunger / ich bin hungrig",
+            "i'm thirsty": "ich habe Durst / ich bin durstig",
+            "i'm lost": "ich habe mich verlaufen / ich bin verloren",
+            "help me": "hilf mir / helfen Sie mir",
+            "call the police": "rufen Sie die Polizei",
+            "i need a doctor": "ich brauche einen Arzt",
+            "is there a pharmacy nearby?": "gibt es hier in der Nähe eine Apotheke?",
+            "i am from...": "ich komme aus...",
+            "where are you from?": "woher kommen Sie? / woher kommst du?",
+            "how old are you?": "wie alt sind Sie? / wie alt bist du?",
+            "i am ... years old": "ich bin ... Jahre alt",
+            "do you speak english?": "sprechen Sie Englisch? / sprichst du Englisch?",
+            "i speak a little german": "ich spreche ein bisschen Deutsch",
+            "what is this?": "was ist das?",
+            "that's great": "das ist großartig / das ist toll",
+            "that's too bad": "das ist schade / das ist schlecht",
+            "i like it": "ich mag es / es gefällt mir",
+            "i don't like it": "ich mag es nicht / es gefällt mir nicht",
+            "are you sure?": "sind Sie sicher? / bist du sicher?",
+            "i'm not sure": "ich bin mir nicht sicher",
+            "be careful": "sei vorsichtig / passen Sie auf",
+            "don't worry": "keine Sorge / mach dir keine Sorgen",
+            "good job": "gut gemacht", "well done": "gut gemacht",
+            "it doesn't matter": "es ist egal / es spielt keine Rolle",
+            "slow down": "langsamer / fahr langsamer",
+            "hurry up": "beeil dich / schneller",
+            "what happened?": "was ist passiert?",
+            "what are you doing?": "was machst du? / was machen Sie?",
+            "what do you want?": "was willst du? / was wollen Sie?",
+            "where are you going?": "wohin gehst du? / wohin gehen Sie?",
+            "can i have the bill, please?": "kann ich bitte die Rechnung haben? / die Rechnung, bitte",
+            "the bill, please": "die Rechnung, bitte",
+            "this way, please": "hier entlang, bitte / dieser Weg, bitte",
+            "follow me": "folgen Sie mir / folge mir",
+            "come in": "herein / komm rein",
+            "sit down": "setzen Sie sich / setz dich",
+            "stand up": "stehen Sie auf / steh auf",
+            "wait here": "warten Sie hier / warte hier",
+            "let's go": "lass uns gehen / auf geht's",
+            "what else?": "was noch? / sonst noch etwas?",
+            "nothing else": "nichts mehr / sonst nichts",
+            "for example": "zum Beispiel / z.B.",
+            "in my opinion": "meiner Meinung nach",
+            "i have no idea": "ich habe keine Ahnung",
+            "it depends": "es kommt darauf an",
+            "on the one hand": "einerseits",
+            "on the other hand": "andererseits",
+            "by the way": "übrigens / nebenbei bemerkt",
+            "first of all": "zuerst / zuallererst",
+            "in fact": "tatsächlich / in der Tat",
+            "in general": "im Allgemeinen",
+            "in particular": "insbesondere / im Besonderen",
+            "sooner or later": "früher oder später",
+            "step by step": "Schritt für Schritt",
+            "once upon a time": "es war einmal",
+            "believe it or not": "ob du es glaubst oder nicht",
+            "as far as i know": "soweit ich weiß",
+            "to be honest": "um ehrlich zu sein / ehrlich gesagt",
+            "if i'm not mistaken": "wenn ich mich nicht irre",
+            "what's the matter?": "was ist los? / was fehlt Ihnen/dir?",
+            "that sounds good": "das klingt gut",
+            "are you kidding?": "machst du Witze? / scherzen Sie?", "you must be joking": "du machst wohl Witze / Sie scherzen wohl",
+            "i can't believe it": "ich kann es nicht glauben",
+            "it's up to you": "es liegt an dir / es ist deine Entscheidung",
+            "make yourself at home": "fühl dich wie zu Hause / machen Sie es sich bequem",
+            "not bad": "nicht schlecht",
+            "so far, so good": "bis jetzt alles gut",
+            "time flies": "die Zeit vergeht wie im Flug",
+            "what a pity": "wie schade / schade", "that's a pity": "das ist schade",
+            "you're right": "du hast Recht / Sie haben Recht",
+            "you're wrong": "du hast Unrecht / Sie haben Unrecht",
+            "i look forward to it": "ich freue mich darauf",
+            "keep in touch": "bleiben wir in Kontakt / lass von dir hören",
+            "it's none of your business": "das geht dich nichts an / das ist nicht deine Angelegenheit", // can be rude
+            "mind your own business": "kümmere dich um deine eigenen Angelegenheiten", // rude
+            "speak louder, please": "sprechen Sie bitte lauter / sprich bitte lauter",
+            "can you repeat that, please?": "können Sie das bitte wiederholen? / kannst du das bitte wiederholen?",
+            "how do you spell that?": "wie buchstabiert man das?",
+            "what's new?": "was gibt's Neues?",
+            "that's enough": "das ist genug / das reicht",
+            "i'm bored": "mir ist langweilig / ich langweile mich",
+            "i'm busy": "ich bin beschäftigt",
+            "i'm cold": "mir ist kalt / ich friere",
+            "i'm hot": "mir ist heiß",
+            "i'm ready": "ich bin fertig / ich bin bereit",
+            "i'm sleepy": "ich bin müde / ich bin schläfrig",
+            "what's your favorite color?": "was ist deine Lieblingsfarbe?",
+            "what kind of music do you like?": "welche Art von Musik magst du?",
+            "what are your hobbies?": "was sind deine Hobbys?",
+            "where do you live?": "wo wohnst du? / wo wohnen Sie?",
+            "where do you work?": "wo arbeitest du? / wo arbeiten Sie?",
+            "what do you do for a living?": "was machst du beruflich? / was machen Sie beruflich?",
+            "have fun": "viel Spaß",
+            "enjoy your meal": "guten Appetit",
+            "get well soon": "gute Besserung",
+            "sleep well": "schlaf gut",
+            "sweet dreams": "süße Träume / träum süß",
+            "welcome back": "willkommen zurück",
+            "who cares?": "wen interessiert's? / ist doch egal",
+            "leave me alone": "lass mich in Ruhe / lassen Sie mich in Ruhe", // can be rude
+            "calm down": "beruhige dich / beruhigen Sie sich",
+            "don't give up": "gib nicht auf / geben Sie nicht auf",
+            "it's not your fault": "es ist nicht deine Schuld / es ist nicht Ihre Schuld",
+            "it's my fault": "es ist meine Schuld",
+            "i promise": "ich verspreche es",
+            "i swear": "ich schwöre",
+            "absolutely": "absolut / auf jeden Fall",
+            // "exactly": "genau / exakt", // adv exists
+            // "perhaps": "vielleicht", // adv/phrase exists
+            // "probably": "wahrscheinlich", // adv exists
+            // "definitely": "definitiv / auf jeden Fall", // adv exists
+            // "certainly": "sicherlich / gewiss", // adv exists
+            "fortunately": "glücklicherweise",
+            // "unfortunately": "leider", // adv exists
+            "seriously?": "ernsthaft? / im Ernst?",
+            "really?": "wirklich? / echt?",
+            // "indeed": "in der Tat / tatsächlich", // adv exists
+            "any questions?": "irgendwelche Fragen? / gibt es Fragen?",
+            "no questions": "keine Fragen",
+            "that's all": "das ist alles",
+            "the end": "das Ende",
+            "to be continued": "Fortsetzung folgt",
+            "thank god": "Gott sei Dank",
+            "what a surprise": "was für eine Überraschung",
+            "happy holidays": "schöne Feiertage",
+            "happy easter": "frohe Ostern",
+            "happy thanksgiving": "frohes Erntedankfest", // US specific
+            // "good afternoon": "guten Tag", // already exists
+            "good day": "guten Tag",
+            "nice weather, isn't it?": "schönes Wetter, nicht wahr?",
+            "how was your day?": "wie war dein Tag? / wie war Ihr Tag?",
+            "what are you thinking about?": "worüber denkst du nach? / worüber denken Sie nach?",
+            "i have a question": "ich habe eine Frage",
+            "can i ask you something?": "kann ich dich etwas fragen? / kann ich Sie etwas fragen?",
+            "what's the weather like?": "wie ist das Wetter?",
+            "it's sunny": "es ist sonnig",
+            "it's cloudy": "es ist bewölkt",
+            "it's raining": "es regnet",
+            "it's snowing": "es schneit",
+            "it's windy": "es ist windig",
+            "it's cold": "es ist kalt",
+            "it's hot": "es ist heiß",
+            "it's warm": "es ist warm",
+            "i need to go": "ich muss gehen / ich muss los",
+            "i have to go": "ich muss gehen / ich muss los",
+            "let me know": "lass es mich wissen / sagen Sie mir Bescheid",
+            "i'll be right back": "ich bin gleich zurück",
+            "just kidding": "nur ein Scherz / ich mache nur Spaß",
+            "no way": "auf keinen Fall / unmöglich",
+            "same here": "bei mir auch / dito",
+            "sounds like a plan": "klingt nach einem Plan",
+            "that's interesting": "das ist interessant",
+            "that's weird": "das ist seltsam / das ist komisch",
+            "what do you mean?": "was meinst du? / was meinen Sie?",
+            "what's the difference?": "was ist der Unterschied?",
+            "you know what i mean?": "weißt du, was ich meine? / wissen Sie, was ich meine?",
+            "feel free": "fühl dich frei / nur zu",
+            "go ahead": "mach nur / nur zu / fahren Sie fort",
+            "hold on": "warte mal / Moment mal", "hang on": "warte mal / Moment mal",
+            "i guess so": "ich nehme es an / ich schätze schon",
+            "it's a long story": "das ist eine lange Geschichte",
+            "it's not a big deal": "das ist keine große Sache / halb so schlimm",
+            "it's worth it": "es ist es wert",
+            "let's see": "mal sehen / schauen wir mal",
+            "take your time": "nimm dir Zeit / lassen Sie sich Zeit",
+            "that's life": "so ist das Leben",
+            "that's the spirit": "das ist die richtige Einstellung",
+            "to make a long story short": "um es kurz zu machen / kurz gesagt",
+            "what can i do for you?": "was kann ich für dich tun? / was kann ich für Sie tun?",
+            "whatever you say": "was auch immer du sagst / wie du meinst",
+            "you bet": "und ob / na klar / aber sicher",
+            "you name it": "was auch immer / Sie nennen es",
+            "easier said than done": "leichter gesagt als getan",
+            "better late than never": "besser spät als nie",
+            "break a leg": "Hals- und Beinbruch / toi toi toi", // good luck
+            "call it a day": "Feierabend machen / Schluss für heute",
+            "get out of hand": "außer Kontrolle geraten",
+            "hang in there": "halte durch",
+            "hit the sack": "ins Bett gehen / sich aufs Ohr hauen",
+            "it's not rocket science": "das ist keine Hexerei / das ist nicht so schwer",
+            "let someone off the hook": "jemanden vom Haken lassen / jemanden davonkommen lassen",
+            "make up your mind": "entscheide dich / treffen Sie eine Entscheidung",
+            "miss the boat": "den Zug verpassen / eine Chance verpassen",
+            "no pain, no gain": "ohne Fleiß kein Preis",
+            "pull yourself together": "reiß dich zusammen",
+            "speak of the devil": "wenn man vom Teufel spricht",
+            "the ball is in your court": "der Ball liegt bei dir / du bist am Zug",
+            "throw in the towel": "das Handtuch werfen / aufgeben",
+            "under the weather": "nicht ganz auf der Höhe sein / angeschlagen sein",
+            "actions speak louder than words": "Taten sagen mehr als Worte",
+            "add insult to injury": "Salz in die Wunde streuen / alles noch schlimmer machen",
+            "bite the bullet": "in den sauren Apfel beißen",
+            "cut corners": "Abkürzungen nehmen / an der falschen Stelle sparen",
+            "don't judge a book by its cover": "urteile nicht nach dem Äußeren",
+            "every cloud has a silver lining": "jedes Übel hat auch sein Gutes / auf Regen folgt Sonnenschein",
+            "get a taste of your own medicine": "die eigene Medizin zu schmecken bekommen",
+            "give someone the benefit of the doubt": "jemandem einen Vertrauensvorschuss geben",
+            "go back to the drawing board": "nochmal von vorne anfangen",
+            "it takes two to tango": "es gehören immer zwei dazu",
+            "jump on the bandwagon": "auf den fahrenden Zug aufspringen / mit dem Strom schwimmen",
+            "kill two birds with one stone": "zwei Fliegen mit einer Klappe schlagen",
+            "let the cat out of the bag": "die Katze aus dem Sack lassen / ein Geheimnis verraten",
+            "look before you leap": "erst denken, dann handeln / schau, bevor du springst",
+            "once in a blue moon": "alle Jubeljahre / sehr selten",
+            "piece of cake": "Kinderspiel / ein Klacks",
+            "put all your eggs in one basket": "alles auf eine Karte setzen",
+            "see eye to eye": "einer Meinung sein / sich einig sein",
+            "sit on the fence": "unentschlossen sein / sich nicht festlegen wollen",
+            "take with a grain of salt": "mit Vorsicht genießen / nicht alles für bare Münze nehmen",
+            "the best of both worlds": "das Beste aus beiden Welten",
+            "the early bird gets the worm": "der frühe Vogel fängt den Wurm / Morgenstund hat Gold im Mund",
+            "the elephant in the room": "der Elefant im Raum / das offensichtliche, unausgesprochene Problem",
+            "there are other fish in the sea": "andere Mütter haben auch schöne Töchter/Söhne",
+            "through thick and thin": "durch dick und dünn",
+            "when pigs fly": "wenn Schweine fliegen / niemals",
+            "a penny for your thoughts": "was denkst du gerade?",
+            "an arm and a leg": "ein Vermögen / sehr teuer",
+            "at the drop of a hat": "sofort / ohne zu zögern",
+            "barking up the wrong tree": "auf dem Holzweg sein / sich an die falsche Adresse wenden",
+            "beat around the bush": "um den heißen Brei herumreden",
+            "best thing since sliced bread": "die beste Erfindung seit geschnitten Brot / großartig",
+            "burn the midnight oil": "bis spät in die Nacht arbeiten / die Nacht durchmachen",
+            // "can't judge a book by its cover": "man soll nicht nach dem Äußeren urteilen", // repeat
+            "catch someone red-handed": "jemanden auf frischer Tat ertappen",
+            "come rain or shine": "was auch immer geschieht / bei jedem Wetter",
+            // "cost an arm and a leg": "ein Vermögen kosten", // repeat
+            "cross that bridge when you come to it": "das Problem angehen, wenn es soweit ist",
+            "cry over spilt milk": "vergossener Milch nachtrauern / sich über Vergangenes ärgern",
+            "curiosity killed the cat": "Neugier ist der Katze Tod",
+            "cut to the chase": "auf den Punkt kommen / zur Sache kommen",
+            "devil's advocate": "Advokat des Teufels / jemand, der Gegenargumente vorbringt",
+            "don't count your chickens before they hatch": "man soll den Tag nicht vor dem Abend loben",
+            // "don't put all your eggs in one basket": "setze nicht alles auf eine Karte", // repeat
+            "elvis has left the building": "die Vorstellung ist vorbei / es ist Schluss",
+            "every dog has his day": "jeder hat mal Glück / jeder kommt mal dran",
+            "fit as a fiddle": "kerngesund / topfit",
+            "fortune favors the bold": "das Glück ist mit den Mutigen / wer wagt, gewinnt",
+            "get a second wind": "neue Energie bekommen / einen zweiten Frühling erleben",
+            "get something off your chest": "sich etwas von der Seele reden",
+            // "give the benefit of the doubt": "jemandem im Zweifel glauben", // repeat
+            "go down in flames": "spektakulär scheitern / untergehen",
+            "go the extra mile": "sich besonders anstrengen / die Extrameile gehen",
+            "heard it on the grapevine": "über den Buschfunk erfahren / gerüchteweise gehört",
+            "hit the nail on the head": "den Nagel auf den Kopf treffen",
+            "ignorance is bliss": "Unwissenheit ist ein Segen / was ich nicht weiß, macht mich nicht heiß",
+            "in the heat of the moment": "im Eifer des Gefechts",
+            "it ain't over till the fat lady sings": "es ist erst vorbei, wenn es vorbei ist / abgerechnet wird zum Schluss",
+            "it's a small world": "die Welt ist klein",
+            "it's raining cats and dogs": "es gießt in Strömen / es schüttet wie aus Eimern",
+            "jump to conclusions": "voreilige Schlüsse ziehen",
+            "keep something at bay": "etwas in Schach halten / etwas fernhalten",
+            "last straw": "der letzte Tropfen, der das Fass zum Überlaufen bringt", "the last straw": "der letzte Tropfen",
+            "let sleeping dogs lie": "schlafende Hunde soll man nicht wecken",
+            "like a chicken with its head cut off": "wie ein kopfloses Huhn / kopflos herumlaufen",
+            "method to my madness": "Methode im Wahnsinn / es steckt ein System dahinter",
+            "necessity is the mother of invention": "Not macht erfinderisch",
+            "not playing with a full deck": "nicht alle Tassen im Schrank haben / nicht ganz bei Trost sein",
+            "off the record": "inoffiziell / vertraulich",
+            "on cloud nine": "im siebten Himmel sein / überglücklich sein",
+            "on the ball": "auf Zack sein / aufmerksam und kompetent sein",
+            "out of the blue": "aus heiterem Himmel / völlig unerwartet",
+            "practice makes perfect": "Übung macht den Meister",
+            "put a sock in it": "halt die Klappe / sei still", // very rude
+            "put your foot in your mouth": "ins Fettnäpfchen treten / etwas Unpassendes sagen",
+            // "raining cats and dogs": "es regnet Katzen und Hunde / es schüttet wie aus Eimern", // repeat
+            "read between the lines": "zwischen den Zeilen lesen",
+            "rule of thumb": "Faustregel",
+            "run out of steam": "die Puste ausgehen / die Energie verlieren",
+            "saved by the bell": "von der Glocke gerettet / im letzten Moment gerettet",
+            "scrape the bottom of the barrel": "das Letzte zusammenkratzen / auf minderwertige Optionen zurückgreifen",
+            "shape up or ship out": "bring dich in Form oder hau ab / entweder du passt dich an oder du gehst",
+            "sink or swim": "friss oder stirb / auf sich allein gestellt sein",
+            "smell a rat": "Lunte riechen / Verdacht schöpfen",
+            "spill the beans": "die Bohnen verschütten / ein Geheimnis ausplaudern",
+            "steal someone's thunder": "jemandem die Schau stehlen",
+            "stick to your guns": "bei seiner Meinung bleiben / nicht nachgeben",
+            "straight from the horse's mouth": "aus erster Hand / direkt von der Quelle",
+            // "take it with a grain of salt": "mit Vorsicht genießen", // repeat
+            "the whole nine yards": "das volle Programm / alles Drum und Dran",
+            "there's no such thing as a free lunch": "nichts ist umsonst / es gibt nichts geschenkt",
+            "third time's a charm": "aller guten Dinge sind drei",
+            "throw caution to the wind": "alle Vorsicht in den Wind schlagen / etwas riskieren",
+            "tip of the iceberg": "Spitze des Eisbergs",
+            "turn a blind eye": "ein Auge zudrücken / etwas ignorieren",
+            "two heads are better than one": "vier Augen sehen mehr als zwei / gemeinsam ist man stärker",
+            "up in the air": "in der Schwebe / ungewiss",
+            "water under the bridge": "Schnee von gestern / vergangen und vergessen",
+            "wear your heart on your sleeve": "sein Herz auf der Zunge tragen / seine Gefühle offen zeigen",
+            "when it rains, it pours": "wenn es regnet, dann schüttet es / ein Unglück kommt selten allein",
+            "you can say that again": "das kannst du laut sagen / da hast du absolut Recht",
+            "you can't have your cake and eat it too": "man kann nicht alles haben / man kann nicht den Kuchen haben und ihn auch essen",
+            "you can't make an omelet without breaking eggs": "wo gehobelt wird, da fallen Späne / man kann kein Omelett machen, ohne Eier zu zerschlagen",
+            "a blessing in disguise": "ein Glück im Unglück",
+            "a dime a dozen": "wie Sand am Meer / nichts Besonderes",
+            "a leopard can't change its spots": "die Katze lässt das Mausen nicht / ein Leopard kann seine Flecken nicht ändern",
+            "a picture is worth a thousand words": "ein Bild sagt mehr als tausend Worte",
+            "all ears": "ganz Ohr sein",
+            "all in the same boat": "alle im selben Boot sitzen",
+            "an apple a day keeps the doctor away": "ein Apfel am Tag hält den Doktor fern",
+            "as cool as a cucumber": "die Ruhe selbst sein / cool wie ein Eisblock",
+            "back to square one": "zurück auf Anfang / wieder bei Null anfangen",
+            "ballpark figure": "ungefähre Schätzung / grobe Zahl",
+            "beating a dead horse": "auf einem toten Pferd reiten / eine aussichtslose Sache verfolgen",
+            "birds of a feather flock together": "gleich und gleich gesellt sich gern",
+            "bite off more than you can chew": "sich zu viel vornehmen / den Mund zu voll nehmen",
+            "by the skin of your teeth": "mit knapper Not / gerade noch so",
+            "cheap as chips": "spottbillig / sehr günstig",
+            "chip on your shoulder": "Streit suchen / nachtragend sein",
+            "clean bill of health": "Gesundheitszeugnis / Freibrief",
+            "close but no cigar": "knapp daneben ist auch vorbei / fast geschafft",
+            "cloud cuckoo land": "Wolkenkuckucksheim / Fantasiewelt",
+            "cold feet": "kalte Füße bekommen / Angst bekommen",
+            "compare apples and oranges": "Äpfel mit Birnen vergleichen",
+            "couch potato": "Stubenhocker / Faulpelz",
+            "crocodile tears": "Krokodilstränen / geheuchelte Trauer",
+            "cut somebody some slack": "jemandem etwas nachsehen / jemanden nicht so streng beurteilen",
+            // "don't cry over spilt milk": "verschütteter Milch nicht nachtrauern", // repeat
+            "down to earth": "bodenständig / realistisch",
+            "drink like a fish": "saufen wie ein Loch / viel Alkohol trinken",
+            "drive someone up the wall": "jemanden zur Weißglut treiben / jemanden wahnsinnig machen",
+            "drop in the bucket": "Tropfen auf den heißen Stein", "a drop in the ocean": "ein Tropfen auf den heißen Stein",
+            "eager beaver": "Streber / Übereifriger",
+            "eat humble pie": "Abbitte leisten / zu Kreuze kriechen",
+            // "elephant in the room": "der Elefant im Raum", // repeat
+            "every Tom, Dick, and Harry": "Hinz und Kunz / jeder Beliebige",
+            "face the music": "die Konsequenzen tragen / für etwas geradestehen",
+            "fall head over heels": "sich Hals über Kopf verlieben",
+            // "feel a bit under the weather": "sich nicht ganz wohl fühlen", // repeat
+            "field day": "ein Festtag / sich austoben können",
+            "find your feet": "sich einleben / Fuß fassen",
+            "finger in every pie": "seine Finger überall im Spiel haben",
+            "fish out of water": "Fisch auf dem Trockenen / sich fehl am Platz fühlen",
+            "fly on the wall": "Mäuschen spielen / unbemerkter Beobachter sein",
+            "food for thought": "Denkanstoß / Stoff zum Nachdenken",
+            "for crying out loud": "um Himmels willen / zum Kuckuck nochmal",
+            "full of beans": "voller Energie / lebhaft",
+            // "get cold feet": "kalte Füße bekommen", // repeat
+            "get your act together": "nimm dich zusammen / reiß dich am Riemen",
+            "give it a shot": "versuch's mal / probier's aus", "give it a try": "versuch's mal",
+            "go cold turkey": "kalter Entzug / abrupt aufhören",
+            "go dutch": "getrennt bezahlen / jeder zahlt für sich",
+            "go for broke": "alles auf eine Karte setzen / aufs Ganze gehen",
+            "grasping at straws": "sich an einen Strohhalm klammern",
+            "grease someone's palm": "jemanden schmieren / bestechen",
+            "green thumb": "grüner Daumen / Händchen für Pflanzen haben",
+            "gut feeling": "Bauchgefühl / Intuition",
+            "hand to mouth": "von der Hand in den Mund leben / gerade so über die Runden kommen",
+            "have a blast": "sich köstlich amüsieren / einen Mordsspaß haben",
+            "have second thoughts": "Zweifel bekommen / es sich anders überlegen",
+            "head in the clouds": "den Kopf in den Wolken haben / verträumt sein",
+            // "hear something straight from the horse's mouth": "etwas aus erster Hand erfahren", // repeat
+            "high five": "High Five / Abklatschen",
+            "hit the books": "pauken / lernen",
+            "hit the road": "sich auf den Weg machen / losfahren",
+            "hold your horses": "langsam, langsam / immer mit der Ruhe",
+            "hot potato": "heißes Eisen / heikles Thema",
+            "if looks could kill": "wenn Blicke töten könnten",
+            "in a nutshell": "kurz gesagt / in aller Kürze",
+            "in hot water": "in Schwierigkeiten stecken / in der Klemme sitzen",
+            "in the limelight": "im Rampenlicht stehen",
+            "in the long run": "auf lange Sicht / langfristig",
+            // "in the same boat": "im selben Boot sitzen", // repeat
+            // "it's a piece of cake": "das ist ein Kinderspiel", // repeat
+            "it's not my cup of tea": "das ist nicht mein Ding / das ist nicht nach meinem Geschmack",
+            "keep an eye on": "ein Auge auf etwas/jemanden haben / aufpassen auf",
+            "kick the bucket": "den Löffel abgeben / sterben", // informal
+            "knock on wood": "auf Holz klopfen / toi, toi, toi", "touch wood": "auf Holz klopfen",
+            "know something like the back of your hand": "etwas wie seine Westentasche kennen",
+            "labor of love": "Liebesmüh / aus Liebe zur Sache tun",
+            "larger than life": "überlebensgroß / außergewöhnlich",
+            "learn the ropes": "sich einarbeiten / die Grundlagen lernen",
+            "leave no stone unturned": "nichts unversucht lassen / jeden Stein umdrehen",
+            "let bygones be bygones": "Schwamm drüber / Vergangenes ruhen lassen",
+            "let your hair down": "sich entspannen / die Sau rauslassen",
+            "light at the end of the tunnel": "Licht am Ende des Tunnels / Hoffnungsschimmer",
+            "like two peas in a pod": "sich gleichen wie ein Ei dem anderen",
+            "live and learn": "man lernt nie aus / aus Erfahrung klug werden",
+            "long shot": "gewagtes Unterfangen / geringe Erfolgsaussicht",
+            "look like a million dollars": "blendend aussehen / wie aus dem Ei gepellt",
+            "lose your marbles": "den Verstand verlieren / verrückt werden",
+            "make a mountain out of a molehill": "aus einer Mücke einen Elefanten machen",
+            "make ends meet": "über die Runden kommen / mit dem Geld auskommen",
+            "mum's the word": "psst / kein Wort darüber",
+            "my lips are sealed": "meine Lippen sind versiegelt / ich sage nichts",
+            "needle in a haystack": "Nadel im Heuhaufen",
+            "never say never": "sag niemals nie",
+            "new kid on the block": "Neuling / der Neue",
+            "no ifs, ands, or buts": "keine Wenn und Aber / ohne Widerrede",
+            "not a spark of decency": "kein Funken Anstand",
+            "off the top of my head": "aus dem Stegreif / ohne nachzudenken",
+            "old habits die hard": "alte Gewohnheiten legt man schwer ab",
+            "on pins and needles": "wie auf Nadeln sitzen / gespannt sein",
+            "on the spur of the moment": "ganz spontan / aus einer Laune heraus",
+            "on thin ice": "auf dünnem Eis / in einer heiklen Situation sein",
+            "out of sight, out of mind": "aus den Augen, aus dem Sinn",
+            "over my dead body": "nur über meine Leiche",
+            "paint the town red": "die Stadt unsicher machen / auf die Pauke hauen",
+            "pass with flying colors": "mit Bravour bestehen / glänzend abschneiden",
+            "pat on the back": "Schulterklopfen / Lob",
+            "play it by ear": "improvisieren / von Fall zu Fall entscheiden",
+            "pull a rabbit out of a hat": "ein Kaninchen aus dem Hut zaubern / eine überraschende Lösung finden",
+            "pull someone's leg": "jemanden auf den Arm nehmen / jemanden veräppeln",
+            "put your money where your mouth is": "Worten Taten folgen lassen / sein Geld dort einsetzen, wo man redet",
+            "quick buck": "schnelles Geld", "make a quick buck": "schnelles Geld machen",
+            "rain on someone's parade": "jemandem die Freude verderben / jemandem in die Suppe spucken",
+            "red carpet treatment": "Behandlung wie ein Star / roter Teppich",
+            "ring a bell": "bekannt vorkommen / eine Glocke läuten lassen",
+            "rise and shine": "aufstehen und glänzen / auf, auf!",
+            "rock the boat": "Unruhe stiften / für Ärger sorgen",
+            "roll with the punches": "Schläge einstecken und weitermachen / sich anpassen",
+            // "rub salt in the wound": "Salz in die Wunde streuen", // repeat
+            "run around in circles": "sich im Kreis drehen / nicht weiterkommen",
+            "save for a rainy day": "für schlechte Zeiten sparen",
+            "second to none": "unschlagbar / unübertroffen",
+            "sell like hotcakes": "weggehen wie warme Semmeln / sich sehr gut verkaufen",
+            "shoot from the hip": "aus der Hüfte schießen / unüberlegt handeln oder reden",
+            "show your true colors": "sein wahres Gesicht zeigen / Farbe bekennen",
+            "sick and tired": "etwas gründlich satt haben / die Nase voll haben",
+            "silver spoon": "mit dem goldenen Löffel im Mund geboren sein", "born with a silver spoon in one's mouth": "mit dem goldenen Löffel im Mund geboren sein",
+            "sixth sense": "sechster Sinn / Intuition",
+            "skeleton in the closet": "Leiche im Keller / dunkles Geheimnis",
+            "sleep like a log": "schlafen wie ein Murmeltier / tief und fest schlafen",
+            "small talk": "Plauderei / oberflächliche Unterhaltung",
+            "smooth sailing": "reibungsloser Verlauf / alles glatt gehen",
+            "snowed under": "mit Arbeit zugeschüttet sein / viel zu tun haben",
+            "spitting image": " Ebenbild / wie aus dem Gesicht geschnitten",
+            "start from scratch": "von Null anfangen / ganz von vorne beginnen",
+            "state of the art": "auf dem neuesten Stand der Technik",
+            "stick a fork in it": "erledigt sein / fertig sein",
+            "storm in a teacup": "Sturm im Wasserglas / viel Aufregung um nichts",
+            "strike while the iron is hot": "das Eisen schmieden, solange es heiß ist",
+            "sweep under the rug": "unter den Teppich kehren / etwas vertuschen",
+            "take a rain check": "aufschieben / ein anderes Mal",
+            "take the bull by the horns": "den Stier bei den Hörnern packen / eine schwierige Aufgabe angehen",
+            "take the plunge": "den Sprung wagen / sich entscheiden",
+            // "taste of your own medicine": "die eigene Medizin zu schmecken bekommen", // repeat
+            "that ship has sailed": "der Zug ist abgefahren / die Chance ist vertan",
+            "the calm before the storm": "die Ruhe vor dem Sturm",
+            "the devil is in the details": "der Teufel steckt im Detail",
+            "the icing on the cake": "das Tüpfelchen auf dem i / das Sahnehäubchen",
+            "the sky's the limit": "keine Grenzen gesetzt / alles ist möglich",
+            "think outside the box": "um die Ecke denken / kreativ sein",
+            "throw someone under the bus": "jemanden ans Messer liefern / jemanden opfern",
+            "tie the knot": "heiraten / den Bund fürs Leben schließen",
+            "time is money": "Zeit ist Geld",
+            "tip someone off": "jemandem einen Tipp geben / jemanden warnen",
+            "tongue in cheek": "nicht ganz ernst gemeint / ironisch",
+            "too many cooks spoil the broth": "zu viele Köche verderben den Brei",
+            "top dog": "Platzhirsch / Anführer",
+            "turn over a new leaf": "ein neues Kapitel aufschlagen / sich ändern",
+            "twist someone's arm": "jemanden überreden / jemanden unter Druck setzen",
+            "two cents": "seinen Senf dazugeben / seine Meinung sagen", "my two cents": "mein Senf dazu",
+            "two wrongs don't make a right": "Unrecht mit Unrecht vergelten macht es nicht besser",
+            "until the cows come home": "bis in alle Ewigkeit / sehr lange",
+            "walk on eggshells": "wie auf Eiern gehen / sehr vorsichtig sein",
+            "wash your hands of something": "seine Hände von etwas in Unschuld waschen / sich von etwas distanzieren",
+            "waste of time": "Zeitverschwendung",
+            "watch paint dry": "Farbe beim Trocknen zusehen / extrem langweilig sein",
+            "weather the storm": "den Sturm überstehen / eine schwierige Zeit meistern",
+            "when hell freezes over": "wenn die Hölle zufriert / niemals",
+            "whistle in the dark": "sich Mut zusprechen / pfeifen im Dunkeln",
+            "white elephant": "teures, nutzloses Geschenk / Klotz am Bein",
+            "white lie": "Notlüge / harmlose Lüge",
+            "whole new ball game": "eine völlig neue Situation / ganz andere Voraussetzungen",
+            "wild goose chase": "vergebliche Suche / aussichtsloses Unterfangen",
+            "wolf in sheep's clothing": "Wolf im Schafspelz",
+            "word of mouth": "Mundpropaganda",
+            "work like a dog": "arbeiten wie ein Pferd / schuften",
+            "wouldn't be caught dead": "würde nicht im Traum daran denken / unter keinen Umständen",
+            "you can't teach an old dog new tricks": "was Hänschen nicht lernt, lernt Hans nimmermehr / einem alten Hund kann man keine neuen Tricks beibringen",
+            "zero tolerance": "Nulltoleranz"
+
+            // Many more could be added... this is a substantial start.
+        };
+
+        const de_to_en_dictionary = {};
+        // Auto-generate the reverse dictionary
+        // This is a simplified approach and might not be perfect for words with multiple meanings
+        // or where German uses different words for English nuances.
+        for (const key in en_to_de_dictionary) {
+            const de_value = en_to_de_dictionary[key];
+            const de_translations = de_value.split(' / '); // Handle multiple German translations for one English word
+
+            de_translations.forEach(de_trans_item => {
+                let clean_de_item = de_trans_item.toLowerCase();
+                // Remove articles like "der ", "die ", "das " for simple lookup if present
+                // and they are not the only word (e.g. "der" alone is "the")
+                if (clean_de_item.startsWith("der ") && clean_de_item.length > 4) clean_de_item = clean_de_item.substring(4);
+                else if (clean_de_item.startsWith("die ") && clean_de_item.length > 4) clean_de_item = clean_de_item.substring(4);
+                else if (clean_de_item.startsWith("das ") && clean_de_item.length > 4) clean_de_item = clean_de_item.substring(4);
+                
+                // Also handle cases like "(Kleidung)" or "(Person)"
+                clean_de_item = clean_de_item.replace(/\s*\(.*?\)\s*/g, '').trim();
+
+
+                if (de_to_en_dictionary[clean_de_item]) {
+                    // If key already exists, append if not already present
+                    if (!de_to_en_dictionary[clean_de_item].includes(key)) {
+                        de_to_en_dictionary[clean_de_item] += ` / ${key}`;
+                    }
+                } else {
+                    de_to_en_dictionary[clean_de_item] = key;
+                }
+
+                // Add the original German phrase if it was different after cleaning
+                if (de_trans_item.toLowerCase() !== clean_de_item) {
+                    if (de_to_en_dictionary[de_trans_item.toLowerCase()]) {
+                        if (!de_to_en_dictionary[de_trans_item.toLowerCase()].includes(key)) {
+                             de_to_en_dictionary[de_trans_item.toLowerCase()] += ` / ${key}`;
+                        }
+                    } else {
+                        de_to_en_dictionary[de_trans_item.toLowerCase()] = key;
+                    }
+                }
+            });
+        }
+        // Manual additions/overrides for de_to_en where auto-generation might be insufficient
+        // (This part would need significant manual curation for high accuracy)
+        de_to_en_dictionary["hallo"] = "hello / hi";
+        de_to_en_dictionary["guten tag"] = "hello / good day / good afternoon";
+        de_to_en_dictionary["auf wiedersehen"] = "goodbye";
+        de_to_en_dictionary["tschüss"] = "bye / goodbye";
+        de_to_en_dictionary["bitte"] = "please / you're welcome";
+        de_to_en_dictionary["danke"] = "thank you / thanks";
+        de_to_en_dictionary["danke schön"] = "thank you very much";
+        de_to_en_dictionary["ja"] = "yes";
+        de_to_en_dictionary["nein"] = "no";
+        de_to_en_dictionary["entschuldigung"] = "excuse me / sorry";
+        de_to_en_dictionary["verzeihung"] = "pardon me / excuse me";
+        de_to_en_dictionary["wie geht es ihnen?"] = "how are you? (formal)";
+        de_to_en_dictionary["wie geht es dir?"] = "how are you? (informal)";
+        de_to_en_dictionary["mir geht es gut"] = "i am fine / i'm doing well";
+        de_to_en_dictionary["wie heißen sie?"] = "what is your name? (formal)";
+        de_to_en_dictionary["wie heißt du?"] = "what is your name? (informal)";
+        de_to_en_dictionary["mein name ist"] = "my name is";
+        de_to_en_dictionary["ich heiße"] = "my name is / i am called";
+        de_to_en_dictionary["ich weiß nicht"] = "i don't know";
+        de_to_en_dictionary["ich verstehe nicht"] = "i don't understand";
+        de_to_en_dictionary["können sie mir helfen?"] = "can you help me? (formal)";
+        de_to_en_dictionary["kannst du mir helfen?"] = "can you help me? (informal)";
+        de_to_en_dictionary["wo ist die toilette?"] = "where is the toilet?";
+        de_to_en_dictionary["wie viel kostet das?"] = "how much does this cost?";
+        de_to_en_dictionary["ich möchte"] = "i would like";
+        de_to_en_dictionary["ich hätte gern"] = "i would like to have";
+        de_to_en_dictionary["prost"] = "cheers";
+        de_to_en_dictionary["gesundheit"] = "bless you (after sneeze) / health";
+        de_to_en_dictionary["glückwunsch"] = "congratulations";
+        de_to_en_dictionary["viel glück"] = "good luck";
+        de_to_en_dictionary["alles gute zum geburtstag"] = "happy birthday";
+        de_to_en_dictionary["frohes neues jahr"] = "happy new year";
+        de_to_en_dictionary["frohe weihnachten"] = "merry christmas";
+        de_to_en_dictionary["ich liebe dich"] = "i love you";
+        de_to_en_dictionary["natürlich"] = "of course / naturally";
+        de_to_en_dictionary["vielleicht"] = "maybe / perhaps";
+        de_to_en_dictionary["wie spät ist es?"] = "what time is it?";
+        de_to_en_dictionary["kein problem"] = "no problem";
+        de_to_en_dictionary["pass auf dich auf"] = "take care (informal)";
+        de_to_en_dictionary["mach's gut"] = "take care / so long (informal)";
+        de_to_en_dictionary["schönen tag noch"] = "have a nice day";
+        de_to_en_dictionary["gute reise"] = "have a good trip";
+        de_to_en_dictionary["guten appetit"] = "enjoy your meal / bon appetit";
+        de_to_en_dictionary["der"] = "the (masculine)";
+        de_to_en_dictionary["die"] = "the (feminine/plural)";
+        de_to_en_dictionary["das"] = "the (neuter) / that";
+        de_to_en_dictionary["ein"] = "a / an / one (masculine/neuter)";
+        de_to_en_dictionary["eine"] = "a / an / one (feminine)";
+        de_to_en_dictionary["er"] = "he";
+        de_to_en_dictionary["sie"] = "she / they / you (formal)"; // Ambiguous
+        de_to_en_dictionary["es"] = "it";
+        de_to_en_dictionary["wir"] = "we";
+        de_to_en_dictionary["ihr"] = "you (plural informal) / her (dative)";
+        de_to_en_dictionary["sein"] = "to be / his";
+        de_to_en_dictionary["haben"] = "to have";
+        de_to_en_dictionary["werden"] = "to become / will (future tense auxiliary)";
+        de_to_en_dictionary["können"] = "to be able to / can / may";
+        de_to_en_dictionary["müssen"] = "to have to / must";
+        de_to_en_dictionary["sagen"] = "to say / to tell";
+        de_to_en_dictionary["machen"] = "to do / to make";
+        de_to_en_dictionary["geben"] = "to give";
+        de_to_en_dictionary["kommen"] = "to come";
+        de_to_en_dictionary["sollen"] = "should / ought to / to be supposed to";
+        de_to_en_dictionary["wollen"] = "to want to";
+        de_to_en_dictionary["gehen"] = "to go / to walk";
+        de_to_en_dictionary["wissen"] = "to know (a fact)";
+        de_to_en_dictionary["sehen"] = "to see";
+        de_to_en_dictionary["lassen"] = "to let / to allow / to leave (something behind)";
+        de_to_en_dictionary["stehen"] = "to stand";
+        de_to_en_dictionary["finden"] = "to find";
+        de_to_en_dictionary["bleiben"] = "to stay / to remain";
+        de_to_en_dictionary["liegen"] = "to lie (be positioned) / to be located";
+        de_to_en_dictionary["heißen"] = "to be called / to mean";
+        de_to_en_dictionary["denken"] = "to think";
+        de_to_en_dictionary["nehmen"] = "to take";
+        de_to_en_dictionary["tun"] = "to do";
+        de_to_en_dictionary["dürfen"] = "to be allowed to / may";
+        de_to_en_dictionary["glauben"] = "to believe / to think";
+        de_to_en_dictionary["halten"] = "to hold / to keep / to stop";
+        de_to_en_dictionary["nennen"] = "to name / to call (by name)";
+        de_to_en_dictionary["mögen"] = "to like";
+        de_to_en_dictionary["zeigen"] = "to show";
+        de_to_en_dictionary["führen"] = "to lead / to guide";
+        de_to_en_dictionary["sprechen"] = "to speak / to talk";
+        de_to_en_dictionary["bringen"] = "to bring / to take (someone somewhere)";
+        de_to_en_dictionary["leben"] = "to live / life";
+        de_to_en_dictionary["fahren"] = "to drive / to go (by vehicle) / to travel";
+        de_to_en_dictionary["meinen"] = "to mean / to think / to be of the opinion";
+        de_to_en_dictionary["fragen"] = "to ask / question";
+        de_to_en_dictionary["kennen"] = "to know (a person/place)";
+        de_to_en_dictionary["gelten"] = "to be valid / to apply / to be considered";
+        de_to_en_dictionary["stellen"] = "to put (vertically) / to place / to set";
+        de_to_en_dictionary["spielen"] = "to play / game";
+        de_to_en_dictionary["arbeiten"] = "to work / work (noun)";
+        de_to_en_dictionary["brauchen"] = "to need";
+        de_to_en_dictionary["folgen"] = "to follow / consequence";
+        de_to_en_dictionary["lernen"] = "to learn / to study";
+        de_to_en_dictionary["bestehen"] = "to pass (a test) / to exist / to consist of";
+        de_to_en_dictionary["verstehen"] = "to understand";
+        de_to_en_dictionary["setzen"] = "to set / to put (seated) / to place";
+        de_to_en_dictionary["bekommen"] = "to get / to receive";
+        de_to_en_dictionary["beginnen"] = "to begin / to start";
+        de_to_en_dictionary["erzählen"] = "to tell / to narrate";
+        de_to_en_dictionary["versuchen"] = "to try / to attempt / attempt (noun)";
+        de_to_en_dictionary["schreiben"] = "to write / letter (correspondence)";
+        de_to_en_dictionary["laufen"] = "to run / to walk";
+        de_to_en_dictionary["erklären"] = "to explain";
+        de_to_en_dictionary["entsprechen"] = "to correspond to / to be equivalent to";
+        de_to_en_dictionary["sitzen"] = "to sit";
+        de_to_en_dictionary["ziehen"] = "to pull / to move (house)";
+        de_to_en_dictionary["scheinen"] = "to shine / to seem / to appear";
+        de_to_en_dictionary["fallen"] = "to fall / case (grammar)";
+        de_to_en_dictionary["gehören"] = "to belong to";
+        de_to_en_dictionary["entstehen"] = "to originate / to arise / to develop";
+        de_to_en_dictionary["erhalten"] = "to receive / to obtain / to maintain";
+        de_to_en_dictionary["treffen"] = "to meet / to hit (a target) / meeting (noun)";
+        de_to_en_dictionary["suchen"] = "to search / to look for";
+        de_to_en_dictionary["legen"] = "to lay / to put (horizontally)";
+        de_to_en_dictionary["vorstellen"] = "to introduce / to imagine / to present";
+        de_to_en_dictionary["handeln"] = "to act / to trade / to deal with";
+        de_to_en_dictionary["erreichen"] = "to reach / to achieve";
+        de_to_en_dictionary["tragen"] = "to carry / to wear";
+        de_to_en_dictionary["schaffen"] = "to create / to make / to manage (to do something)";
+        de_to_en_dictionary["lesen"] = "to read";
+        de_to_en_dictionary["verlieren"] = "to lose";
+        de_to_en_dictionary["darstellen"] = "to represent / to depict / to portray";
+        de_to_en_dictionary["erkennen"] = "to recognize / to realize";
+        de_to_en_dictionary["entwickeln"] = "to develop";
+        de_to_en_dictionary["reden"] = "to talk / to speak / speech";
+        de_to_en_dictionary["aussehen"] = "to look (like) / to appear / appearance";
+        de_to_en_dictionary["erscheinen"] = "to appear / to be published";
+        de_to_en_dictionary["bilden"] = "to form / to educate / to constitute";
+        de_to_en_dictionary["anfangen"] = "to begin / to start";
+        de_to_en_dictionary["erwarten"] = "to expect";
+        de_to_en_dictionary["wohnen"] = "to live (reside)";
+        de_to_en_dictionary["betreffen"] = "to concern / to affect";
+        de_to_en_dictionary["warten"] = "to wait";
+        de_to_en_dictionary["vergehen"] = "to pass (time) / to elapse / offense (noun)";
+        de_to_en_dictionary["helfen"] = "to help";
+        de_to_en_dictionary["gewinnen"] = "to win";
+        de_to_en_dictionary["schließen"] = "to close / to conclude";
+        de_to_en_dictionary["fühlen"] = "to feel";
+        de_to_en_dictionary["bieten"] = "to offer / to bid";
+        de_to_en_dictionary["interessieren"] = "to interest";
+        de_to_en_dictionary["erinnern"] = "to remember / to remind";
+        de_to_en_dictionary["ergeben"] = "to result in / to yield";
+        de_to_en_dictionary["anbieten"] = "to offer";
+        de_to_en_dictionary["studieren"] = "to study (at university)";
+        de_to_en_dictionary["verbinden"] = "to connect / to link / to combine";
+        de_to_en_dictionary["schauen"] = "to look / to watch";
+        de_to_en_dictionary["fehlen"] = "to be missing / to lack / mistake (noun)";
+        de_to_en_dictionary["bedeuten"] = "to mean / to signify";
+        de_to_en_dictionary["vergleichen"] = "to compare";
+        de_to_en_dictionary["zum beispiel"] = "for example / e.g.";
+        de_to_en_dictionary["z.b."] = "e.g. / for example";
+        de_to_en_dictionary["usw."] = "etc. / and so on";
+        de_to_en_dictionary["u.s.w."] = "etc. / and so on";
+        de_to_en_dictionary["d.h."] = "i.e. / that is";
+        de_to_en_dictionary["bzw."] = "or rather / respectively";
+        de_to_en_dictionary["ca."] = "approx. / circa / about";
+        // "ok" already in en_to_de phrases, so auto-gen should handle
+        de_to_en_dictionary["bitte schön"] = "you're welcome / here you go";
+        de_to_en_dictionary["gern geschehen"] = "you're welcome / my pleasure";
+        de_to_en_dictionary["keine ursache"] = "no problem / don't mention it / you're welcome";
+        de_to_en_dictionary["übersetzer"] = "translator";
+        de_to_en_dictionary["übersetzung"] = "translation";
+
+        // --- DOM ELEMENTS ---
+        const inputTextElem = document.getElementById('inputText');
+        const outputElem = document.getElementById('output');
+        const translateBtn = document.getElementById('translateBtn');
+        const sourceLangElem = document.getElementById('sourceLang');
+        const targetLangElem = document.getElementById('targetLang');
+
+        // --- EVENT LISTENERS ---
+        sourceLangElem.addEventListener('change', () => {
+            if (sourceLangElem.value === 'en') {
+                targetLangElem.value = 'de';
+            } else {
+                targetLangElem.value = 'en';
+            }
+            outputElem.textContent = "";
+        });
+
+        translateBtn.addEventListener('click', translateText);
+        inputTextElem.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                translateText();
+            }
+        });
+
+        // --- TRANSLATION LOGIC ---
+        function translateText() {
+            const rawInputText = inputTextElem.value.trim();
+            const textForFullPhraseLookup = rawInputText.toLowerCase();
+            const sourceLang = sourceLangElem.value;
+            let translatedText = "";
+
+            if (!rawInputText) {
+                outputElem.textContent = "";
+                return;
+            }
+
+            let dictionary;
+            if (sourceLang === 'en') {
+                dictionary = en_to_de_dictionary;
+            } else {
+                dictionary = de_to_en_dictionary;
+            }
+
+            if (dictionary[textForFullPhraseLookup]) {
+                translatedText = dictionary[textForFullPhraseLookup];
+            } else {
+                const wordsAndPunctuation = rawInputText.split(/(\s+|[,\.\?!;:"'()\u002D])/g).filter(Boolean);
+                const translatedWords = wordsAndPunctuation.map(part => {
+                    const lowerPart = part.toLowerCase();
+                    if (/^[\s,\.\?!;:"'()\u002D]+$/.test(part) || /^\d+$/.test(part)) {
+                        return part;
+                    }
+                    // For German input, try with Umlauts converted if not found directly
+                    let germanLookupKey = lowerPart;
+                    if (sourceLang === 'de') {
+                        const withUmlauts = germanLookupKey
+                            .replace(/ae/g, 'ä').replace(/oe/g, 'ö').replace(/ue/g, 'ü').replace(/ss/g, 'ß');
+                        if (dictionary[withUmlauts]) {
+                            germanLookupKey = withUmlauts;
+                        }
+                    }
+                    return dictionary[germanLookupKey] || `(${part}?)`;
+                });
+                translatedText = translatedWords.join("");
+            }
+            outputElem.textContent = translatedText;
+        }
+
+        // Initialize target language
+        if (sourceLangElem.value === 'en') {
+            targetLangElem.value = 'de';
+        } else {
+            targetLangElem.value = 'en';
+        }
+    </script>
+</body>
+</html>
+```
